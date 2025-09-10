@@ -18,6 +18,10 @@
       display: flex;
       flex-direction: column;
     }
+    /* Center Observer radar/canvas on mobile */
+    #observerPanel canvas{ display:block; margin-left:auto; margin-right:auto; max-width:92vw; height:auto }
+    #observerPanel .chart, #observerPanel .radarWrap{ display:flex; justify-content:center }
+    #observerPanel .radarWrap{ width:100% }
     a{color:var(--accent)}
     header{
       position:sticky;
@@ -54,16 +58,18 @@
     .palette .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .palette .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
     @media (max-width:480px){ .palette{min-width:260px} }
+    @media (max-width:980px){ .palette-advanced{ display:none } }
     :root{ --ally:#38bdf8; --keeper:#f59e0b; --good:#86efac }
     h1{margin:0;font-size:14px;letter-spacing:.2px;opacity:.9}
     .controls{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;overflow-x:hidden;white-space:nowrap}
     .collapsed{display:none !important}
     /* Header menu */
     .menu-wrap{position:relative}
-    .menu{position:absolute;left:0;top:calc(100% + 6px);min-width:320px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 24px rgba(0,0,0,0.35);padding:10px;display:none;z-index:20}
+    .menu{position:absolute;left:0;top:calc(100% + 6px);min-width:320px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 24px rgba(0,0,0,0.35);padding:10px;display:none;z-index:220; touch-action:manipulation; -webkit-overflow-scrolling:touch }
     .menu.open{display:block}
     .menu details{border-top:1px dashed var(--line);padding-top:8px;margin-top:8px}
     button, select, input, textarea{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit}
+    @media (max-width:980px){ button, select{ min-height:36px } }
     button{cursor:pointer}
     .pill{padding:6px 10px;border-radius:999px;font-size:12px;white-space:nowrap}
     /* Fixed-width status pills for mobile clarity */
@@ -469,11 +475,11 @@
           <div class="row">
             <strong style="font-size:12px; color:var(--muted)">Controls</strong>
           </div>
-          <div class="row">
+          <div class="row palette-advanced">
             <label class="small">Scenario</label>
             <select id="paletteScenario"></select>
           </div>
-          <div class="row">
+          <div class="row palette-advanced">
             <label class="small">Theme</label>
             <select id="paletteTheme">
               <option value="news">Newspaper</option>
@@ -532,6 +538,18 @@
             <div class="row toggle"><input type="checkbox" id="autoConverse" /><label for="autoConverse">LLM Auto-Converse (prefer Flow: Auto)</label></div>
             <div class="row toggle"><input type="checkbox" id="relayMode" checked /><label for="relayMode">Relay completions into other chat</label></div>
             <div class="row toggle"><input type="checkbox" id="strategicPlanningEnabled" checked /><label for="strategicPlanningEnabled">Enable Strategic Planning</label></div>
+            <div class="row" style="gap:8px; align-items:center; border-top:1px dashed var(--line); padding-top:8px">
+              <label class="small">Scenario
+                <select id="modelsScenario"></select>
+              </label>
+              <label class="small">Theme
+                <select id="modelsTheme">
+                  <option value="news">Newspaper</option>
+                  <option value="light">White</option>
+                  <option value="dark">Black</option>
+                </select>
+              </label>
+            </div>
             <details open>
               <summary>Planner options</summary>
               <div class="row" style="gap:8px; align-items:center;">
@@ -604,12 +622,13 @@
                 </select>
             </label>
             <button id="btnNext" class="hide-mobile" style="padding:6px 10px; font-size:12px; white-space:nowrap;" title="Next step">➤</button>
-            <button id="btnFullscreen" class="hide-mobile" title="Fullscreen" aria-label="Fullscreen">⛶</button>
             <button id="btnRecord" class="hide-mobile" title="Record screen + audio" aria-label="Record">◉</button>
         </div>
-        <!-- Tools dropdowns moved to top-left title area -->
-        <label class="small hide-mobile" style="display:flex; align-items:center; gap:6px;" title="Compact UI">
+        <!-- Always-visible quick controls -->
+        <button id="btnFullscreen" title="Fullscreen" aria-label="Fullscreen">⛶</button>
+        <label class="small" style="display:flex; align-items:center; gap:6px;" title="Compact UI">
           <input type="checkbox" id="compactMode" aria-label="Compact UI" />
+          <span class="hide-mobile">Compact</span>
         </label>
       </div>
     </div>
@@ -1071,31 +1090,9 @@
       const d = document.getElementById('mobileDrawer'); if (d) d.classList.remove('open');
       blockClickCloseUntil = Date.now() + 120;
     });
-
-  // Pending PLAN choice map (for manual selection wait)
-  const pendingPlan = Object.create(null);
-
-  // Once orchestratorState is ready, merge any fallback policies into it (wait until bus exists)
-  function registerPolicyMerge(){
-    try{
-      if (window.bus && typeof bus.on==='function'){
-        bus.on(ev=>{
-          if (ev && ev.type==='APP/INIT'){
-            try{
-              if (typeof orchestratorState !== 'undefined' && orchestratorState && window.__policiesFallback){
-                Object.assign(orchestratorState.policies, window.__policiesFallback);
-                delete window.__policiesFallback;
-                syncPlannerUI();
-              }
-            }catch{}
-          }
-        });
-      } else {
-        setTimeout(registerPolicyMerge, 50);
-      }
-    }catch{}
-  }
-  registerPolicyMerge();
+    // Prevent inside taps from closing
+    modelsMenu.addEventListener('click', e=> e.stopPropagation());
+    modelsMenu.addEventListener('touchstart', e=> e.stopPropagation(), {passive:true});
   }
   const audioMenuBtn = $('audioMenuBtn');
   const audioMenu = $('audioMenu');
@@ -1110,6 +1107,9 @@
       const d = document.getElementById('mobileDrawer'); if (d) d.classList.remove('open');
       blockClickCloseUntil = Date.now() + 120;
     });
+    // Prevent inside taps from closing
+    audioMenu.addEventListener('click', e=> e.stopPropagation());
+    audioMenu.addEventListener('touchstart', e=> e.stopPropagation(), {passive:true});
   }
   // Outside-click close with short guard to avoid immediately closing after open
   let blockClickCloseUntil = 0;
@@ -1241,6 +1241,11 @@
   if (logoBtn){
     logoBtn.addEventListener('click', (e)=>{ e.stopPropagation(); if (palettePanel?.classList.contains('open')) closePalette(); else openPalette(); });
     logoBtn.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); if (palettePanel?.classList.contains('open')) closePalette(); else openPalette(); }});
+  }
+  // Do not close palette when tapping inside it (mobile)
+  if (palettePanel){
+    palettePanel.addEventListener('click', e=> e.stopPropagation());
+    palettePanel.addEventListener('touchstart', e=> e.stopPropagation(), {passive:true});
   }
   document.addEventListener('click', (e)=>{ if (palettePanel && palettePanel.classList.contains('open')){ const within = palettePanel.contains(e.target) || logoBtn.contains(e.target); if (!within) closePalette(); }});
   // Sync options and actions
