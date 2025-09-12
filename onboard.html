@@ -4286,36 +4286,39 @@ function setupUIBindings() {
     function ensureOnboardingStyles(){
       if (document.getElementById('onboardingStyles')) return;
       const css = `
-        .onboard-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:saturate(1.2) blur(2px);display:flex;align-items:center;justify-content:center;z-index:9999}
-        .onboard-overlay .onboard{background:var(--card) !important; color:var(--fg); width:min(820px,94vw); border-radius:14px; box-shadow:0 8px 32px rgba(0,0,0,0.35); overflow:hidden; backdrop-filter:none !important; -webkit-backdrop-filter:none !important; opacity:1}
+        .onboard-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:saturate(1.2) blur(2px);display:flex;align-items:center;justify-content:center;z-index:9999;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+        .onboard-overlay .onboard{background:var(--card) !important; color:var(--fg); width:min(820px,94vw); border-radius:14px; box-shadow:0 8px 32px rgba(0,0,0,0.35); overflow:hidden; backdrop-filter:none !important; -webkit-backdrop-filter:none !important; opacity:1; display:flex; flex-direction:column; max-height:min(90vh, 720px)}
         .onboard header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
         .onboard header .logo{font-size:20px}
-        .onboard .body{padding:16px; background:var(--card)}
+        .onboard .body{padding:16px; background:var(--card); overflow:auto; -webkit-overflow-scrolling:touch}
         .onboard .steps{display:flex;gap:8px;margin-bottom:10px}
-        .onboard .step{flex:1;padding:10px;border:1px dashed var(--line);border-radius:10px;display:none; background:var(--card)}
+        .onboard .step{flex:1;padding:12px;border:1px dashed var(--line);border-radius:10px;display:none; background:var(--card)}
         .onboard .step.active{display:block}
         .onboard .row{display:flex;gap:10px;flex-wrap:wrap}
-        .onboard label{display:flex;flex-direction:column;gap:6px;font-size:12px;flex:1;min-width:200px}
-        .onboard input[type=text], .onboard select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card) !important;color:var(--fg)}
+        .onboard label{display:flex;flex-direction:column;gap:6px;font-size:13px;flex:1;min-width:200px}
+        .onboard input[type=text], .onboard select, .onboard textarea{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card) !important;color:var(--fg);font-size:16px}
         .onboard details{border:1px dashed var(--line); border-radius:10px; padding:10px; background:var(--card)}
         .onboard details + details{ margin-top:8px }
         .onboard summary{cursor:pointer; font-weight:600}
         .onboard ul{ margin:6px 0 0 18px }
         .onboard li{ margin:4px 0 }
-        .onboard .nav{display:flex;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid var(--line);background:var(--card)}
+        .onboard .nav{display:flex;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid var(--line);background:var(--card);position:sticky;bottom:0}
         .onboard .nav .left{display:flex;gap:8px}
         .onboard .nav .right{display:flex;gap:8px}
-        .onboard button{padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card) !important;color:var(--fg)}
+        .onboard button{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card) !important;color:var(--fg);min-height:44px;font-size:16px}
         .onboard .hero{display:flex;gap:12px;align-items:center;margin-bottom:8px}
         .onboard .hero .box{width:56px;height:56px;border-radius:12px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:26px}
         .onboard .muted{opacity:0.8;font-size:12px}
         .onboard .explain{margin:6px 0 12px 0; font-size:12px; opacity:0.9}
         @media (max-width: 520px){
-          .onboard{width:96vw;border-radius:10px}
+          .onboard-overlay{align-items:flex-end}
+          .onboard{width:100vw;max-width:100vw;border-radius:14px 14px 0 0;max-height:calc(100vh - 8px - env(safe-area-inset-bottom))}
+          .onboard header{padding:12px 14px}
+          .onboard .body{padding:12px;max-height:calc(100vh - 160px - env(safe-area-inset-bottom))}
           .onboard .row{flex-direction:column}
           .onboard label{min-width:unset}
           .onboard button{width:100%}
-          .onboard .nav{flex-direction:column}
+          .onboard .nav{flex-direction:column;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
           .onboard .nav .left,.onboard .nav .right{width:100%;justify-content:stretch}
         }
       `;
