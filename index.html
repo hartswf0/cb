@@ -808,6 +808,13 @@
       </div>
       <canvas class="radar" id="radar"></canvas>
       <div class="legend" id="legend"></div>
+      <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap; padding:4px 0;">
+        <span class="small" style="color:var(--muted)">Figure import (centaur-figure JSON from figures.html):</span>
+        <button id="figureToAlly" class="small" title="Load an exported figure profile as the Ally's self-model">⬆ FIGURE → ALLY</button>
+        <button id="figureToKeeper" class="small" title="Load an exported figure profile as the Gatekeeper's self-model">⬆ FIGURE → GATEKEEPER</button>
+        <span class="small" id="figureImportNote" style="color:var(--muted)"></span>
+        <input id="figureFile" type="file" accept="application/json,.json" style="display:none">
+      </div>
       <div class="momentum" title="Momentum reflects the Observer's estimated influence each side has had on the Gatekeeper's beliefs, nudging them towards Release (Ally ↑) or Hold (Gatekeeper ↑).">
         <span class="label">Momentum</span>
         <div class="bar"><div class="fill" id="momentumFill" style="width:50%"></div></div>
@@ -3200,24 +3207,49 @@ JSON Format Example:
     ctx.clearRect(0,0,w,h);
     const cx=w/2, cy=h/2, R=Math.min(w,h)*0.36;
     const spokes = axes.length;
-    ctx.strokeStyle=getComputedStyle(document.body).getPropertyValue('--line'); ctx.lineWidth=1;
-    for(let ring=1; ring<=4; ring++){ ctx.beginPath(); ctx.arc(cx,cy,R*ring/4,0,Math.PI*2); ctx.stroke(); }
+    const css = getComputedStyle(document.body);
+    const gridCol = (css.getPropertyValue('--radar-grid')||'').trim() || css.getPropertyValue('--line');
+    const labelCol = (css.getPropertyValue('--radar-label')||'').trim() || css.getPropertyValue('--fg');
+    ctx.strokeStyle=gridCol; ctx.lineWidth=1;
+    for(let ring=1; ring<=5; ring++){ ctx.beginPath(); ctx.arc(cx,cy,R*ring/5,0,Math.PI*2); ctx.stroke(); }
+    // ring value ticks along the top spoke
+    ctx.fillStyle=labelCol; ctx.font='9px system-ui'; ctx.textAlign='left'; ctx.textBaseline='bottom';
+    for(let ring=1; ring<=5; ring++){ ctx.fillText(String(ring), cx+3, cy - R*ring/5 - 1); }
     for(let i=0;i<spokes;i++){
       const ang = (i/spokes)*Math.PI*2 - Math.PI/2;
+      ctx.strokeStyle=gridCol;
       ctx.beginPath(); ctx.moveTo(cx,cy); const xy=polar(cx,cy,R,ang); ctx.lineTo(xy[0],xy[1]); ctx.stroke();
-      ctx.fillStyle=getComputedStyle(document.body).getPropertyValue('--fg'); ctx.font='12px system-ui';
+      ctx.fillStyle=labelCol; ctx.font='11px system-ui';
       const labelXY=polar(cx,cy,R+14,ang);
       ctx.textAlign = (Math.cos(ang)>0.2)?'left':(Math.cos(ang)<-0.2)?'right':'center';
       ctx.textBaseline = (Math.sin(ang)>0.2)?'top':(Math.sin(ang)<-0.2)?'bottom':'middle';
-      ctx.fillText(axes[i], labelXY[0], labelXY[1]);
+      const nm = axes[i];
+      ctx.fillText(nm.charAt(0).toUpperCase()+nm.slice(1,12), labelXY[0], labelXY[1]);
     }
-    function plot(profile, color, alpha, dashed){ if(dashed) ctx.setLineDash([4,4]); else ctx.setLineDash([]); ctx.beginPath(); for(let i=0;i<spokes;i++){ const ang=(i/spokes)*Math.PI*2 - Math.PI/2; const v=(profile[axes[i]]||1)/5; const p=polar(cx,cy,R*v,ang); if(i===0) ctx.moveTo(p[0],p[1]); else ctx.lineTo(p[0],p[1]); } ctx.closePath(); if(!dashed){ ctx.fillStyle = hexToRgba(color,alpha); ctx.fill(); } ctx.strokeStyle = color; ctx.stroke(); ctx.setLineDash([]); }
+    function plot(profile, color, alpha, dashed){ if(dashed) ctx.setLineDash([4,4]); else ctx.setLineDash([]); ctx.beginPath(); for(let i=0;i<spokes;i++){ const ang=(i/spokes)*Math.PI*2 - Math.PI/2; const v=(profile[axes[i]]||1)/5; const p=polar(cx,cy,R*v,ang); if(i===0) ctx.moveTo(p[0],p[1]); else ctx.lineTo(p[0],p[1]); } ctx.closePath(); if(!dashed){ ctx.fillStyle = hexToRgba(color,alpha); ctx.fill(); } ctx.strokeStyle = color; ctx.lineWidth=1.5; ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth=1; }
     // Big observer radar: only two shapes — Observer→Ally (blue), Observer→Keeper (orange)
-    plot(orchestratorState.beliefs.observerModelOfAlly, COLORS.ally, 0.18, false);
-    plot(orchestratorState.beliefs.observerModelOfKeeper, COLORS.keeper, 0.18, false);
+    const mA = orchestratorState.beliefs.observerModelOfAlly, mK = orchestratorState.beliefs.observerModelOfKeeper;
+    plot(mA, COLORS.ally, 0.18, false);
+    plot(mK, COLORS.keeper, 0.18, false);
     // dashed outlines for clarity
-    plot(orchestratorState.beliefs.observerModelOfAlly, COLORS.ally, 0, true);
-    plot(orchestratorState.beliefs.observerModelOfKeeper, COLORS.keeper, 0, true);
+    plot(mA, COLORS.ally, 0, true);
+    plot(mK, COLORS.keeper, 0, true);
+    // divergence markers: where the observer's two models disagree most, tie the vertices together
+    let maxGapAxis = -1, maxGap = 0;
+    for(let i=0;i<spokes;i++){
+      const a = Number(mA[axes[i]]||3), k = Number(mK[axes[i]]||3);
+      const gap = Math.abs(a-k);
+      if (gap > maxGap){ maxGap = gap; maxGapAxis = i; }
+      if (gap >= 0.8){
+        const ang=(i/spokes)*Math.PI*2 - Math.PI/2;
+        const pa=polar(cx,cy,R*a/5,ang), pk=polar(cx,cy,R*k/5,ang);
+        ctx.strokeStyle=hexToRgba('#f87171',0.75); ctx.lineWidth=2.5;
+        ctx.beginPath(); ctx.moveTo(pa[0],pa[1]); ctx.lineTo(pk[0],pk[1]); ctx.stroke();
+        ctx.lineWidth=1;
+        ctx.fillStyle=COLORS.ally; ctx.beginPath(); ctx.arc(pa[0],pa[1],2.5,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle=COLORS.keeper; ctx.beginPath(); ctx.arc(pk[0],pk[1],2.5,0,Math.PI*2); ctx.fill();
+      }
+    }
 
     if ($('legend')) {
         $('legend').innerHTML='';
@@ -3225,8 +3257,48 @@ JSON Format Example:
         chip('Observer → Ally (current belief)', COLORS.ally),
         chip('Observer → Gatekeeper (current belief)', COLORS.keeper)
         );
+        if (maxGapAxis >= 0 && maxGap >= 0.8) {
+          $('legend').append(chip('Largest disagreement: '+axes[maxGapAxis]+' Δ'+maxGap.toFixed(1), '#f87171'));
+        }
     }
   }
+
+  // --- Figure import: load a centaur-figure profile (exported from figures.html) as an agent self-model ---
+  let figureImportTarget = null;
+  const figureFileEl = $('figureFile');
+  function extractFigureProfile(j){
+    const src = (j && typeof j.dims === 'object' && j.dims) ? j.dims
+              : (j && axes.every(k => typeof j[k] === 'number')) ? j
+              : (j && j.channels && j.channels.shown && j.channels.shown.theta) ? j.channels.shown.theta
+              : null;
+    if (!src) return null;
+    const dims = {};
+    for (const k of axes) dims[k] = Math.max(1, Math.min(5, Number(src[k] ?? 3) || 3));
+    return { dims, name: (j && typeof j.name === 'string' && j.name) || 'figure', archetypes: (j && Array.isArray(j.archetypes)) ? j.archetypes : [] };
+  }
+  $('figureToAlly')?.addEventListener('click', ()=>{ figureImportTarget = 'ALLY'; figureFileEl?.click(); });
+  $('figureToKeeper')?.addEventListener('click', ()=>{ figureImportTarget = 'KEEPER'; figureFileEl?.click(); });
+  figureFileEl?.addEventListener('change', async (e)=>{
+    const file = e.target.files && e.target.files[0]; e.target.value = '';
+    const noteEl = $('figureImportNote');
+    if (!file || !figureImportTarget) return;
+    try {
+      const j = JSON.parse(await file.text());
+      const fig = extractFigureProfile(j);
+      if (!fig) throw new Error('No usable dims found — expected a centaur-figure JSON or a plain 11-axis belief object.');
+      const tgt = figureImportTarget === 'ALLY' ? orchestratorState.beliefs.allySelf : orchestratorState.beliefs.keeperSelf;
+      Object.assign(tgt, fig.dims);
+      logEntry('OBS', 'FIGURE/IMPORT', `Figure "${fig.name}" loaded as ${figureImportTarget} self-model${fig.archetypes.length ? ' (' + fig.archetypes.join(', ') + ')' : ''}. The observer must now rediscover this latent program through conversation.`, { target: figureImportTarget, dims: { ...fig.dims }, archetypes: fig.archetypes });
+      syncEditGrid(figureImportTarget === 'ALLY' ? 'allyEditGrid' : 'keeperEditGrid', tgt);
+      syncEditGrid(figureImportTarget === 'ALLY' ? 'allyEditGrid_inline' : 'keeperEditGrid_inline', tgt);
+      if (noteEl) noteEl.textContent = `"${fig.name}" → ${figureImportTarget === 'ALLY' ? 'Ally' : 'Gatekeeper'} self-model`;
+      updateUIState();
+    } catch (err) {
+      if (noteEl) noteEl.textContent = 'Import failed: ' + err.message;
+    } finally {
+      figureImportTarget = null;
+    }
+  });
 
   function drawMini(canvas, profile, color){ if(!canvas) return; const dpr = Math.min(2, window.devicePixelRatio||1); const w = canvas.clientWidth || 320, h = canvas.clientHeight || 120; canvas.width = w*dpr; canvas.height = h*dpr; const ctx = canvas.getContext('2d'); ctx.scale(dpr,dpr); ctx.clearRect(0,0,w,h); const cx=w/2, cy=h/2, R=Math.min(w,h)*0.42; ctx.strokeStyle=getComputedStyle(document.body).getPropertyValue('--line'); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.stroke(); const spokes = axes.length; ctx.beginPath(); for(let i=0;i<spokes;i++){ const ang=(i/spokes)*Math.PI*2 - Math.PI/2; const v=(profile[axes[i]]||1)/5; const x=cx+R*v*Math.cos(ang), y=cy+R*v*Math.sin(ang); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);} ctx.closePath(); ctx.fillStyle = hexToRgba(color,0.18); ctx.fill(); ctx.strokeStyle = color; ctx.stroke(); }
   // Layered mini: draw self (background, lighter) and observer (foreground, solid stroke) on same canvas

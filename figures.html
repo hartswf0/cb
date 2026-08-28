@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CENTAUR FIGURES — latent-program radar instrument</title>
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:light-dark(#f5f1e8,#10100e);
+  --paper:light-dark(#fffdf7,#171713);
+  --ink:light-dark(#181814,#f0eee6);
+  --muted:light-dark(#777268,#99968e);
+  --line:light-dark(#d8d1c4,#34322d);
+  --soft:light-dark(#ece5d8,#22211d);
+  --good:light-dark(#326245,#79b88d);
+  --bad:light-dark(#8d3029,#df766f);
+  --warn:light-dark(#88621f,#d7ad5f);
+  --blue:light-dark(#2b5d8a,#7db3dd);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:14px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.hidden{display:none!important}
+#app{max-width:1020px;margin:0 auto;background:var(--paper);min-height:100dvh;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+header.top{display:flex;gap:12px;align-items:baseline;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{font-weight:900;letter-spacing:.11em}
+#status{font-size:10px;color:var(--muted);margin-left:auto}
+main{padding:18px clamp(14px,4vw,34px) 60px}
+h1{font:700 30px/1.05 ui-serif,Georgia,serif;margin:14px 0 6px}
+h2{font:700 17px/1.2 ui-serif,Georgia,serif;margin:30px 0 8px}
+.eyebrow{font-size:9px;letter-spacing:.16em;color:var(--warn);margin-top:16px}
+.lede{color:var(--muted);font-size:11px;line-height:1.6;max-width:640px;margin-bottom:12px}
+textarea{width:100%;min-height:200px;resize:vertical;border:1px solid var(--line);background:transparent;padding:12px;font:15px/1.5 ui-serif,Georgia,serif}
+.primary{border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:10px 14px;min-height:42px}
+.secondary{border:1px solid var(--line);background:transparent;padding:9px 12px;min-height:38px}
+.quiet{border:0;background:transparent;color:var(--muted);padding:6px 8px;font-size:10px}
+.rowBtns{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;align-items:center}
+.notice{font-size:10px;color:var(--muted);margin-top:8px}
+/* audit */
+.auditTop{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.auditState{font-weight:900;font-size:11px;letter-spacing:.08em}
+.auditState.good{color:var(--good)}.auditState.warn{color:var(--warn)}.auditState.bad{color:var(--bad)}
+.auditGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:8px 0}
+.auditCell{border-left:1px solid var(--line);padding-left:7px;min-width:0}
+.auditCell b{display:block;font:700 15px ui-serif,Georgia,serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.auditCell span{font-size:8px;color:var(--muted)}
+.auditControl{display:grid;grid-template-columns:130px minmax(0,1fr);gap:8px;align-items:center;margin-top:8px;max-width:420px}
+.auditControl select{border:1px solid var(--line);background:transparent;padding:8px;min-width:0}
+/* radar block */
+#radarWrap{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+@media(min-width:860px){#radarWrap{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}}
+#radarSvg{width:100%;height:auto;display:block;user-select:none}
+.legendRow{display:flex;gap:14px;flex-wrap:wrap;font-size:9px;color:var(--muted);margin-top:4px}
+.legendRow .sw{display:inline-block;width:16px;height:0;border-top:2px solid var(--ink);vertical-align:middle;margin-right:5px}
+.legendRow .sw.dash{border-top-style:dashed;border-top-color:var(--warn)}
+.legendRow .sw.band{height:8px;border:0;background:color-mix(in srgb,var(--ink) 14%,transparent)}
+.legendRow .sw.ghost{border-top-style:dotted;border-top-color:var(--muted)}
+.legendRow .sw.llm{border-top-color:var(--good)}
+.scrub{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;margin:10px 0}
+.scrub input[type=range]{width:100%}
+.scrub .t{font-size:10px;color:var(--muted);white-space:nowrap}
+/* axis table */
+table.axes{width:100%;border-collapse:collapse;font-size:10px}
+table.axes th{font-size:8px;letter-spacing:.12em;color:var(--muted);text-align:left;font-weight:400;border-bottom:1px solid var(--line);padding:4px 6px 4px 0}
+table.axes td{border-bottom:1px solid var(--line);padding:5px 6px 5px 0;vertical-align:top}
+table.axes tr{cursor:pointer}
+table.axes tr.sel td{background:var(--soft)}
+table.axes .v{font:700 13px ui-serif,Georgia,serif}
+table.axes .cLow{color:var(--muted)}
+.gapFlag{color:var(--bad);font-weight:700}
+/* myth card */
+.mythCard{border:1px solid var(--line);background:var(--soft);padding:14px;margin-top:12px}
+.mythCard h3{font:700 22px/1.05 ui-serif,Georgia,serif;margin:0 0 6px}
+.mythCard p{font:14px/1.5 ui-serif,Georgia,serif;color:var(--muted);margin:0}
+.mythCard .tag{font-size:8px;letter-spacing:.14em;color:var(--warn)}
+/* evidence */
+#evidencePanel{border:1px solid var(--line);padding:12px;margin-top:14px}
+#evidencePanel h3{font:700 15px ui-serif,Georgia,serif;margin:0 0 8px}
+.evRow{border-bottom:1px solid var(--line);padding:7px 0;font-size:10px}
+.evRow:last-child{border-bottom:0}
+.evRow .q{font:13px/1.4 ui-serif,Georgia,serif;margin-top:3px}
+.evRow mark{background:color-mix(in srgb,var(--warn) 30%,transparent);color:inherit;padding:0 2px}
+.evMeta{color:var(--muted)}
+.dirUp{color:var(--good);font-weight:700}
+.dirDown{color:var(--bad);font-weight:700}
+/* compare */
+.deltaRow{display:grid;grid-template-columns:110px minmax(0,1fr) 60px;gap:8px;font-size:10px;border-bottom:1px solid var(--line);padding:5px 0;align-items:center}
+.deltaBar{height:6px;background:var(--soft);position:relative}
+.deltaBar>span{position:absolute;top:0;bottom:0;background:var(--blue)}
+/* llm */
+.llmForm{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,2fr) minmax(0,2fr) auto;gap:6px;max-width:760px}
+.llmForm input{border:1px solid var(--line);background:transparent;padding:9px;min-width:0}
+@media(max-width:680px){.llmForm{grid-template-columns:1fr 1fr}.llmForm button{grid-column:1/-1}.auditGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+details.theory{border:1px solid var(--line);padding:0 14px;margin-top:26px}
+details.theory summary{padding:12px 0;cursor:pointer;font-size:10px;letter-spacing:.13em;color:var(--muted)}
+details.theory .body{font:15px/1.6 ui-serif,Georgia,serif;max-width:680px;padding-bottom:16px}
+details.theory .body p{margin:0 0 .9em}
+details.theory .body b{font-weight:700}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px solid var(--line);padding:10px;font-size:10px;max-height:34vh;overflow:auto}
+a{color:inherit}
+</style>
+</head>
+<body>
+<div id="app">
+<header class="top">
+  <div class="brand">CENTAUR FIGURES</div>
+  <div style="font-size:10px;color:var(--muted)">FIGURE CORPS × CENTAUR BOX</div>
+  <div id="status">no figure loaded</div>
+</header>
+<main>
+  <div class="eyebrow">INSTRUMENT</div>
+  <h1>The Figure as a Latent Program</h1>
+  <div class="lede">A recorded person is treated as a generative program: transcript turns are sparse samples of its output. This instrument reconstructs the program's low-dimensional parameters — the Centaur Box's eleven psychological axes — from transcript evidence only, and draws the posterior as a radar with per-axis confidence. Every score is traceable to the exact turns that produced it; where the record is silent, the radar stays at its prior and says so.</div>
+
+  <h2>1 · Ingest a figure</h2>
+  <div class="lede">Paste a StoryCorps-style transcript (ER: / HR: labels, or Speaker 00:03 formats), or import a FIGURE CORPS export — a <i>figure-corps-run</i> JSON, a studio file of minted figures, or a plain turns JSON.</div>
+  <textarea id="pasteText" aria-label="Transcript" placeholder="ER: When did you first leave home?&#10;&#10;HR: Oh, I decided right then and there..."></textarea>
+  <div id="ingestAudit" class="notice">Paste a transcript to run the ingestion audit.</div>
+  <div class="rowBtns">
+    <button id="compileBtn" class="primary" type="button" disabled>COMPILE LATENT PROGRAM</button>
+    <button id="importBtn" class="secondary" type="button">IMPORT FIGURE-CORPS JSON</button>
+    <button id="sampleBtn" class="quiet" type="button">LOAD SAMPLE</button>
+    <input id="importFile" class="hidden" type="file" accept="application/json,.json">
+  </div>
+
+  <section id="figureSection" class="hidden">
+    <h2>2 · Latent profile</h2>
+    <div class="lede" id="figureLede"></div>
+    <div id="radarWrap">
+      <div>
+        <svg id="radarSvg" viewBox="0 0 720 600" role="img" aria-label="Psychological profile radar"></svg>
+        <div class="legendRow">
+          <span><span class="sw"></span>shown (behavioral channel)</span>
+          <span><span class="sw dash"></span>told (self-report channel)</span>
+          <span><span class="sw band"></span>±confidence band</span>
+          <span><span class="sw ghost"></span>prior / held figure A</span>
+          <span id="legendLLM" class="hidden"><span class="sw llm"></span>LLM modeler</span>
+        </div>
+        <div class="scrub">
+          <span class="t">EVIDENCE →</span>
+          <input id="scrubber" type="range" min="0" max="0" step="1" value="0" aria-label="Evidence scrubber">
+          <span class="t" id="scrubLabel">turn 0/0</span>
+        </div>
+        <div class="notice">Drag the scrubber to replay the posterior converging as evidence arrives, turn by turn. Click an axis (in the table or on the chart) to open its evidence.</div>
+      </div>
+      <div>
+        <table class="axes" id="axisTable"></table>
+        <div class="mythCard" id="mythCard"></div>
+      </div>
+    </div>
+    <div id="evidencePanel" class="hidden"></div>
+
+    <h2>3 · Myth gap</h2>
+    <div class="lede">Barthes by way of the tape: the story the figure tells about itself (first-person claims) against the manner in which it actually speaks (hedges, connectives, imperatives, rhythm). Axes where the two channels disagree are the figure's working myth.</div>
+    <div id="gapList" class="notice"></div>
+
+    <h2>4 · Compare & export</h2>
+    <div class="rowBtns">
+      <button id="holdBtn" class="secondary" type="button">HOLD AS FIGURE A</button>
+      <button id="exportBtn" class="secondary" type="button">EXPORT CENTAUR-FIGURE JSON</button>
+      <button id="copyBeliefBtn" class="secondary" type="button">COPY CENTAUR BELIEF</button>
+      <span class="notice" id="exportNote" style="margin:0"></span>
+    </div>
+    <div id="compareBlock" class="hidden">
+      <div class="notice" id="compareLede"></div>
+      <div id="deltaList" style="margin-top:8px"></div>
+    </div>
+    <div class="lede" style="margin-top:10px">The exported profile drops straight into the Centaur Box (<a href="index.html">index.html</a> → Observer panel → IMPORT FIGURE): the figure's latent program becomes an agent's self-model, and the Centaur Box observer must rediscover it through conversation.</div>
+
+    <h2>5 · Optional LLM modeler</h2>
+    <div class="lede">A hidden-model pass in the Centaur Box idiom: an OpenAI-compatible model reads the target's turns and returns dims with per-axis evidence turn citations. It is drawn as a third polygon, never silently blended — the deterministic estimate stays visible. Keys stay in this page.</div>
+    <form class="llmForm" id="llmForm">
+      <input id="llmBase" placeholder="base URL e.g. http://localhost:11434/v1" autocomplete="off">
+      <input id="llmKey" type="password" placeholder="API key (blank for local)" autocomplete="off">
+      <input id="llmModel" placeholder="model ID" autocomplete="off">
+      <button class="secondary" type="submit">RUN MODELER</button>
+    </form>
+    <div id="llmNote" class="notice"></div>
+  </section>
+
+  <details class="theory">
+    <summary>THEORY — HOW THE LATENT PROGRAM IS MODELED</summary>
+    <div class="body">
+      <p><b>The claim.</b> A figure in FIGURE CORPS is not a bundle of biographical facts; it is a <b>latent program</b> — a generative process that, given a conversational situation, produces this person's kind of utterance. The transcript is a sparse, biased sample of that program's outputs. The Centaur Box already models agents with an eleven-dimensional disposition vector θ = (openness … decisiveness). Integration: treat θ as the low-dimensional parameter surface of the figure's latent program. The radar is not decoration — it is the posterior over θ given the record.</p>
+      <p><b>Inference (Tenenbaum PLoT, made honest).</b> The prior is maximum-entropy: every axis at 3, confidence 0 — the instrument claims nothing before evidence. Each target-speaker turn is scanned for observable markers; each marker is an evidence event e = (turn, axis, direction, weight, quote). A turn's events yield an observation v = 3 + 1.5·tanh(Σ±w), and the posterior mean updates with a decreasing gain θ ← θ + (v−θ)/(n+2) — a fixed-form conjugate update, so early turns move the estimate freely and later turns refine it. Per-axis confidence c = n/(n+4) sets the band width: few observations, wide band; the radar literally shows how much the record has earned the right to say.</p>
+      <p><b>Two channels — the centaur.</b> Testimony and behavior are different evidence. The <b>told</b> channel scores first-person claims (“I decided right then”, “I was so scared”) — the story the figure narrates about itself. The <b>shown</b> channel scores manner — hedges, causal connectives, imperatives, assent, exclamation, expansiveness — the program's texture regardless of what it claims. Where the polygons diverge past threshold, that is the <b>myth gap</b> (Barthes): the figure's self-mythology measured against its own tape. Neither channel is “the truth”; the pair is the figure.</p>
+      <p><b>Evidence discipline (FIGURE CORPS contract).</b> No axis moves without a citable turn; clicking any axis lists the exact quotes and directions that produced its score. Silence is preserved as prior + wide band, never filled with invented biography. The optional LLM modeler must return per-axis turn citations and is drawn as a separate polygon — it can disagree with the lexical estimator in public, but it cannot overwrite it.</p>
+      <p><b>Closing the loop (Centaur Box).</b> Exporting hands the posterior over as a Centaur Box Belief. Loaded as an agent's <i>self-model</i>, the figure's latent program becomes the hidden ground truth of a Centaur Box encounter — and the Box's Observer, updating its own radar from conversation alone, is now running the same inference this instrument ran on the archive. Comparing the Observer's converged model with this instrument's transcript posterior is the held-out test at the level of character rather than sentences: did the performance carry the program, or only its lines?</p>
+    </div>
+  </details>
+</main>
+</div>
+
+<script>
+(()=>{'use strict';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const uniq=a=>[...new Set(a)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- axes (Centaur Box order & keys) ---------- */
+const AXES=[
+ {k:'openness',label:'Openness',abbr:'OPN'},
+ {k:'conscientious',label:'Conscientiousness',abbr:'CON'},
+ {k:'extraversion',label:'Extraversion',abbr:'EXT'},
+ {k:'agreeableness',label:'Agreeableness',abbr:'AGR'},
+ {k:'neuroticism',label:'Neuroticism',abbr:'NEU'},
+ {k:'logic',label:'Logic',abbr:'LOG'},
+ {k:'empathy',label:'Empathy',abbr:'EMP'},
+ {k:'authority',label:'Authority',abbr:'AUT'},
+ {k:'risk',label:'Risk',abbr:'RSK'},
+ {k:'uncertainty',label:'Uncertainty',abbr:'UNC'},
+ {k:'decisiveness',label:'Decisiveness',abbr:'DEC'}
+];
+const flat3=()=>Object.fromEntries(AXES.map(a=>[a.k,3]));
+
+/* ---------- transcript parsing (FIGURE CORPS 1.0-auto machinery) ---------- */
+function cleanSpeakerLabel(s){return String(s||'').replace(/^[\-–—\s]+|[\-–—\s]+$/g,'').replace(/\s+/g,' ').trim()}
+function plausibleSpeakerLabel(s){
+  s=cleanSpeakerLabel(s);
+  if(!s||s.length>60||/^https?:/i.test(s)||/[!?]/.test(s))return false;
+  const words=s.split(/\s+/);
+  if(words.length>8)return false;
+  if(/^(transcript|storycorps|recording|audio|copyright|interview|description|chapter|section)$/i.test(s))return false;
+  const alpha=(s.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/g)||[]).length;
+  return alpha>=1&&alpha/Math.max(1,s.length)>.35;
+}
+function isTimestampLine(s){
+  return /^\s*\d+\s*$/.test(s)||/^\s*\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d{1,3})?\s*-->\s*\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d{1,3})?/.test(s);
+}
+function parseSpeakerStart(line){
+  const time='\\d{1,2}:\\d{2}(?::\\d{2})?(?:[.,]\\d{1,3})?';
+  let m=line.match(new RegExp('^\\s*([^\\n]{1,60}?)\\s+(?:\\[|\\()?('+time+')(?:\\]|\\))?\\s*:?[\\s\\-–—]*(.*)\\s*$'));
+  if(m&&plausibleSpeakerLabel(m[1]))return{speaker:cleanSpeakerLabel(m[1]),text:(m[3]||'').trim(),start:m[2]||null};
+  m=line.match(new RegExp('^\\s*(?:\\[('+time+')\\]\\s*)?([^:\\n]{1,60})\\s*:\\s*(.*)\\s*$'));
+  if(m&&plausibleSpeakerLabel(m[2]))return{speaker:cleanSpeakerLabel(m[2]),text:(m[3]||'').trim(),start:m[1]||null};
+  m=line.match(/^\s*([^:\n]{1,60})\s*:\s*$/);
+  if(m&&plausibleSpeakerLabel(m[1]))return{speaker:cleanSpeakerLabel(m[1]),text:'',start:null};
+  return null;
+}
+function mergeAdjacentTurns(turns){
+  const out=[];
+  for(const t0 of turns){
+    const t={...t0,speaker:cleanSpeakerLabel(t0.speaker),text:String(t0.text||'').replace(/\s+/g,' ').trim()};
+    if(!t.speaker||!t.text)continue;
+    const prev=out[out.length-1];
+    if(prev&&prev.speaker===t.speaker){prev.text=(prev.text+' '+t.text).trim()}
+    else out.push({...t});
+  }
+  return out.map((t,i)=>({...t,i:i+1}));
+}
+function parseTranscriptTextDetailed(raw){
+  const text=String(raw||'').replace(/ /g,' ').replace(/\r\n?/g,'\n');
+  const lines=text.split('\n'),out=[];let cur=null,recognizedChars=0,totalChars=0,ignoredLines=0;
+  for(const rawLine of lines){
+    const line=rawLine.trim();if(!line)continue;
+    if(isTimestampLine(line))continue;
+    totalChars+=line.length;
+    const hit=parseSpeakerStart(line);
+    if(hit){cur={speaker:hit.speaker,text:hit.text};out.push(cur);recognizedChars+=hit.text.length;continue}
+    if(cur){cur.text+=(cur.text?' ':'')+line;recognizedChars+=line.length}
+    else ignoredLines++;
+  }
+  const turns=mergeAdjacentTurns(out);
+  const coverage=totalChars?Math.min(1,recognizedChars/totalChars):0;
+  return{turns,meta:{coverage,ignoredLines}};
+}
+function isQuestionLike(s){
+  const x=String(s||'').trim();
+  return /\?/.test(x)||/^(who|what|when|where|why|how|do|does|did|is|are|was|were|can|could|would|will|have|has|had|tell me|talk about|what about)\b/i.test(x);
+}
+function targetRanking(turns){
+  const speakers=uniq(turns.map(t=>t.speaker)),stats=speakers.map(s=>({speaker:s,chars:0,turns:0,questions:0,answers:0,longTurns:0,score:0}));
+  const by=new Map(stats.map(x=>[x.speaker,x]));
+  turns.forEach((t,i)=>{
+    const x=by.get(t.speaker);x.chars+=t.text.length;x.turns++;
+    if(isQuestionLike(t.text))x.questions++;if(t.text.length>180)x.longTurns++;
+    const prev=turns[i-1];if(prev&&prev.speaker!==t.speaker&&isQuestionLike(prev.text))x.answers++;
+  });
+  for(const x of stats)x.score=x.answers*9+x.chars/220+x.longTurns*.8-x.questions*2.5;
+  return stats.sort((a,b)=>b.score-a.score||b.chars-a.chars);
+}
+function auditTranscript(turns,meta={},targetOverride=''){
+  const ranking=targetRanking(turns),speakers=ranking.map(x=>x.speaker);
+  const target=speakers.includes(targetOverride)?targetOverride:(ranking[0]?.speaker||'');
+  const coverage=Number.isFinite(meta.coverage)?meta.coverage:1;
+  const targetTurns=turns.filter(t=>t.speaker===target);
+  const targetWords=targetTurns.reduce((n,t)=>n+t.text.split(/\s+/).length,0);
+  const issues=[];
+  if(turns.length<6)issues.push(`Only ${turns.length} speaker turns were recovered.`);
+  if(speakers.length<2)issues.push('Only one speaker was detected.');
+  if(coverage<.6)issues.push(`Only ${Math.round(coverage*100)}% of non-timestamp text fell under a detected speaker.`);
+  if(!target)issues.push('No storyteller could be predicted.');
+  if(targetWords<120)issues.push(`The target speaker has only ${targetWords} words on the record; the posterior will stay close to the prior.`);
+  const critical=turns.length<4||speakers.length<1||coverage<.45||!target||targetWords<40;
+  const level=critical?'bad':issues.length?'warn':'good';
+  return{level,coverage,speakers,target,turnCount:turns.length,targetTurns:targetTurns.length,targetWords,issues};
+}
+
+/* ---------- evidence lexicons ----------
+   ch: 'story' = self-report / narrated content (told channel)
+       'manner' = conversational texture (shown channel)          */
+const LEX={
+ openness:[
+  {rx:/\b(imagine[ds]?|imagining|wonder(?:ed|ing)?|curious|curiosity|dream(?:ed|s|t)?|beautiful|poetry|paint(?:ed|ing)?|music|melody|mystery|mysterious|magic(?:al)?|discover(?:ed|y|ing)?|invent(?:ed|ion)?|strange)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(never (?:cared|thought) about (?:art|books|music)|same thing every day)\b/gi,dir:-1,w:1,ch:'story'}
+ ],
+ conscientious:[
+  {rx:/\b(work(?:ed|ing)?|job|duty|dut(?:y|ies)|responsib\w+|plan(?:ned|ning|s)?|save[ds]?|saving|careful(?:ly)?|discipline[d]?|schedule[d]?|chores|every (?:day|morning|night)|on time)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(forgot|lazy|late again|never planned|messy)\b/gi,dir:-1,w:1,ch:'story'},
+  {rx:/\b(19|20)\d{2}\b/g,dir:1,w:.4,ch:'manner'}
+ ],
+ extraversion:[
+  {rx:/\b(friends?|everybody|everyone|party|parties|danc(?:e|ed|ing)|laugh(?:ed|ing|ter)?|crowd|neighbors?|sing(?:ing|s)?|joke[ds]?)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(shy|quiet one|kept to myself|by myself|alone most)\b/gi,dir:-1,w:1,ch:'story'},
+  {rx:/!/g,dir:1,w:.5,ch:'manner'},
+  {rx:/\[(?:laugh(?:s|ter|ing)?)\]|\(laugh(?:s|ter|ing)?\)/gi,dir:1,w:.7,ch:'manner'}
+ ],
+ agreeableness:[
+  {rx:/\b(kind(?:ness)?|gentle|help(?:ed|ing)?|forgave|forgive(?:ness)?|love[ds]?|loving|sweet|patient|shared?)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(fought|argued|hated|couldn't stand|stubborn)\b/gi,dir:-1,w:.8,ch:'story'},
+  {rx:/\b(yes|yeah|right|sure|of course|absolutely|exactly|mm-?hmm)\b[.,!]?/gi,dir:1,w:.35,ch:'manner'},
+  {rx:/\b(thank(?:s| you)|please|sorry)\b/gi,dir:1,w:.5,ch:'manner'}
+ ],
+ neuroticism:[
+  {rx:/\b(afraid|scared|terrified|frighten(?:ed|ing)?|worr(?:y|ied|ies|ying)|nervous|anxious|anxiety|panic(?:ked)?|cried|crying|tears|depress\w+|lonely|loneliness|guilt\w*|ashamed|shame)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(calm|at peace|didn't (?:bother|scare) me|not afraid|never worried)\b/gi,dir:-1,w:1,ch:'story'}
+ ],
+ logic:[
+  {rx:/\b(because|therefore|the reason|which meant|so that|figured (?:out|it)|worked out|add(?:ed)? up|percent|logic(?:al)?|proof|evidence)\b/gi,dir:1,w:.7,ch:'manner'},
+  {rx:/\bif\b[^.?!]{0,60}\bthen\b/gi,dir:1,w:1,ch:'manner'}
+ ],
+ empathy:[
+  {rx:/\b(?:he|she|they)\s+(?:felt|must have felt|was hurting|were hurting|needed)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\bI could (?:see|tell|feel)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(put myself in|in (?:his|her|their) shoes|understood (?:him|her|them)|for (?:his|her|their) sake)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\byou know (?:how|what) (?:it|that) (?:feels|felt|was) like\b/gi,dir:1,w:.6,ch:'manner'}
+ ],
+ authority:[
+  {rx:/\b(listen|look here|believe me|let me tell you|mark my words|I'm telling you)\b/gi,dir:1,w:.8,ch:'manner'},
+  {rx:/\b(?:you )?(?:must|have to|has to|need to|ought to)\b/gi,dir:1,w:.5,ch:'manner'},
+  {rx:/\bI (?:told|made|ordered|ran the|was in charge|took charge|put a stop)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(did what I was told|asked permission|obeyed|went along with)\b/gi,dir:-1,w:1,ch:'story'}
+ ],
+ risk:[
+  {rx:/\b(chance[s]?|gamble[d]?|risk(?:ed|y|s)?|jumped|ran away|left everything|quit(?: my job)?|dared?|adventure|no idea what|packed (?:up|my bags)|hitchhiked|signed up)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(played it safe|stayed put|too dangerous|never dared|safe(?:ty first)?)\b/gi,dir:-1,w:1,ch:'story'}
+ ],
+ uncertainty:[
+  {rx:/\b(maybe|perhaps|I guess|I suppose|I think|kind of|sort of|I don't know|I'm not sure|probably|might have|or something|whatever it was)\b/gi,dir:1,w:.6,ch:'manner'},
+  {rx:/\b(definitely|certainly|no doubt|absolutely|for sure|I know for a fact|without question)\b/gi,dir:-1,w:.7,ch:'manner'}
+ ],
+ decisiveness:[
+  {rx:/\b(I decided|made up my mind|right then and there|I knew (?:right away|immediately|exactly|right then)|never looked back|that was that|no question|then and there)\b/gi,dir:1,w:1.2,ch:'story'},
+  {rx:/\b(couldn't decide|went back and forth|hesitated|put it off|second-?guess)\b/gi,dir:-1,w:1,ch:'story'}
+ ]
+};
+
+/* ---------- the latent-program engine ---------- */
+function scanTurn(turn,tIndex){
+  const evts=[];
+  for(const ax of AXES){
+    for(const rule of LEX[ax.k]){
+      rule.rx.lastIndex=0;let m;
+      while((m=rule.rx.exec(turn.text))){
+        const at=m.index,len=m[0].length;
+        const from=Math.max(0,at-46),to=Math.min(turn.text.length,at+len+46);
+        evts.push({turn:tIndex,axis:ax.k,dir:rule.dir,w:rule.w,ch:rule.ch,
+          match:m[0],pre:(from>0?'…':'')+turn.text.slice(from,at),post:turn.text.slice(at+len,to)+(to<turn.text.length?'…':'')});
+        if(!rule.rx.global)break;
+      }
+    }
+  }
+  return evts;
+}
+function structuralEvents(turn,tIndex,medianWords){
+  const evts=[];
+  const words=turn.text.split(/\s+/).filter(Boolean);
+  if(medianWords>0&&words.length>1.6*medianWords&&words.length>=40)
+    evts.push({turn:tIndex,axis:'extraversion',dir:1,w:.5,ch:'manner',match:'(expansive turn: '+words.length+' words)',pre:'',post:''});
+  if(words.length>=30){
+    const ttr=uniq(words.map(w=>w.toLowerCase().replace(/[^a-z']/g,''))).length/words.length;
+    if(ttr>.72)evts.push({turn:tIndex,axis:'openness',dir:1,w:.5,ch:'manner',match:'(lexically rich turn: TTR '+ttr.toFixed(2)+')',pre:'',post:''});
+  }
+  return evts;
+}
+function emptyChannel(){return{theta:flat3(),n:Object.fromEntries(AXES.map(a=>[a.k,0]))}}
+function updateChannel(chState,axisSums){
+  for(const ax of AXES){
+    const s=axisSums[ax.k];
+    if(!s||!s.hits)continue;
+    const v=clamp(3+1.5*Math.tanh(s.sum/1.5),1,5);
+    const n=chState.n[ax.k];
+    chState.theta[ax.k]=chState.theta[ax.k]+(v-chState.theta[ax.k])/(n+2);
+    chState.n[ax.k]=n+1;
+  }
+}
+function confidence(n){return n/(n+4)}
+function band(n){return (1-confidence(n))*1.1}
+
+function compileLatentProgram(turns,target){
+  const targetTurns=turns.filter(t=>t.speaker===target);
+  const wordCounts=targetTurns.map(t=>t.text.split(/\s+/).filter(Boolean).length).sort((a,b)=>a-b);
+  const medianWords=wordCounts.length?wordCounts[Math.floor(wordCounts.length/2)]:0;
+  const shown=emptyChannel(),told=emptyChannel();
+  const snapshots=[snapshotOf(shown,told)];
+  const evidence=[];
+  targetTurns.forEach(t=>{
+    const evts=[...scanTurn(t,t.i),...structuralEvents(t,t.i,medianWords)];
+    evidence.push(...evts);
+    const sums={shown:{},told:{}};
+    for(const e of evts){
+      const bucket=e.ch==='manner'?sums.shown:sums.told;
+      const s=bucket[e.axis]||(bucket[e.axis]={sum:0,hits:0});
+      s.sum+=e.dir*e.w;s.hits++;
+    }
+    updateChannel(shown,sums.shown);
+    updateChannel(told,sums.told);
+    snapshots.push(snapshotOf(shown,told));
+  });
+  return{shown,told,snapshots,evidence,targetTurns,medianWords};
+}
+function snapshotOf(shown,told){
+  return{shown:{theta:{...shown.theta},n:{...shown.n}},told:{theta:{...told.theta},n:{...told.n}}};
+}
+
+/* ---------- archetypes (deterministic) ---------- */
+const ARCHE={
+ openness:{hi:'The Wonderer',lo:'The Settled'},
+ conscientious:{hi:'The Keeper of Lists',lo:'The Drifter'},
+ extraversion:{hi:'The Kitchen-Table Orator',lo:'The Quiet One'},
+ agreeableness:{hi:'The Peacemaker',lo:'The Contrarian'},
+ neuroticism:{hi:'The Vigil',lo:'The Unshaken'},
+ logic:{hi:'The Reckoner',lo:'The Intuitive'},
+ empathy:{hi:'The Tender',lo:'The Removed'},
+ authority:{hi:'The Steward',lo:'The Deferent'},
+ risk:{hi:'The Voyager',lo:'The Hearthbound'},
+ uncertainty:{hi:'The Wavering',lo:'The Certain'},
+ decisiveness:{hi:'The Anvil',lo:'The Deliberator'}
+};
+function deriveArchetypes(fig){
+  const devs=AXES.map(a=>{
+    const v=blended(fig,a.k),n=fig.shown.n[a.k]+fig.told.n[a.k];
+    return{k:a.k,label:a.label,dev:v-3,n,name:(v>=3?ARCHE[a.k].hi:ARCHE[a.k].lo)};
+  }).filter(d=>d.n>0&&Math.abs(d.dev)>=.35).sort((a,b)=>Math.abs(b.dev)-Math.abs(a.dev));
+  return devs.slice(0,3);
+}
+function blended(fig,k){
+  const ns=fig.shown.n[k],nt=fig.told.n[k];
+  if(!ns&&!nt)return 3;
+  return (fig.shown.theta[k]*ns+fig.told.theta[k]*nt)/((ns+nt)||1);
+}
+function mythGaps(fig){
+  return AXES.map(a=>{
+    const ns=fig.shown.n[a.k],nt=fig.told.n[a.k];
+    return{k:a.k,label:a.label,shown:fig.shown.theta[a.k],told:fig.told.theta[a.k],
+      gap:fig.told.theta[a.k]-fig.shown.theta[a.k],cs:confidence(ns),ct:confidence(nt)};
+  }).filter(g=>g.cs>.2&&g.ct>.2&&Math.abs(g.gap)>=.7).sort((a,b)=>Math.abs(b.gap)-Math.abs(a.gap));
+}
+/* cross-axis contrasts: the classic self-mythologies, told on one axis, betrayed on another */
+const CONTRASTS=[
+ {a:['told','decisiveness'],b:['shown','uncertainty'],min:3.4,
+  line:'Narrates decision ("I knew right then") while speaking in hedges — the myth of certainty, told on the decisiveness axis and undone on the uncertainty axis.'},
+ {a:['told','authority'],b:['shown','agreeableness'],min:3.4,
+  line:'Claims command in the story while performing accord in the manner — authority narrated, agreeableness enacted.'},
+ {a:['told','risk'],b:['told','neuroticism'],min:3.4,
+  line:'The voyager who trembles — risk and fear narrated side by side; the leap and the shaking hands belong to the same record.'}
+];
+function contrastFindings(fig){
+  const val=(ch,k)=>fig[ch].theta[k],n=(ch,k)=>fig[ch].n[k];
+  return CONTRASTS.filter(c=>
+    n(c.a[0],c.a[1])>0&&n(c.b[0],c.b[1])>0&&
+    val(c.a[0],c.a[1])>=c.min&&val(c.b[0],c.b[1])>=c.min
+  ).map(c=>({...c,
+    va:val(c.a[0],c.a[1]),vb:val(c.b[0],c.b[1]),
+    la:AXES.find(x=>x.k===c.a[1]).label,lb:AXES.find(x=>x.k===c.b[1]).label}));
+}
+
+/* ---------- radar (refined SVG) ---------- */
+const CX=360,CY=290,R=225;
+function ptAt(axisIdx,v){
+  const ang=(axisIdx/AXES.length)*Math.PI*2-Math.PI/2;
+  const r=R*clamp(v,0,5)/5;
+  return[CX+r*Math.cos(ang),CY+r*Math.sin(ang)];
+}
+function poly(theta,keyFn){
+  return AXES.map((a,i)=>ptAt(i,keyFn(a.k)).map(x=>x.toFixed(1)).join(',')).join(' ');
+}
+function bandPath(theta,nMap){
+  // outer ring then inner ring reversed; evenodd fill gives the band
+  const outer=AXES.map((a,i)=>ptAt(i,clamp(theta[a.k]+band(nMap[a.k]),0,5)));
+  const inner=AXES.map((a,i)=>ptAt(i,clamp(theta[a.k]-band(nMap[a.k]),0,5)));
+  const d1='M'+outer.map(p=>p.map(x=>x.toFixed(1)).join(',')).join('L')+'Z';
+  const d2='M'+inner.map(p=>p.map(x=>x.toFixed(1)).join(',')).join('L')+'Z';
+  return d1+' '+d2;
+}
+function renderRadar(snap,fig){
+  const svg=$('#radarSvg');
+  let out='';
+  // rings + value labels
+  for(let ring=1;ring<=5;ring++){
+    const r=R*ring/5;
+    out+=`<circle cx="${CX}" cy="${CY}" r="${r}" fill="none" stroke="var(--line)" stroke-width="1"/>`;
+    out+=`<text x="${CX+3}" y="${CY-r-3}" font-size="9" fill="var(--muted)" font-family="ui-monospace,monospace">${ring}</text>`;
+  }
+  // spokes + labels
+  AXES.forEach((a,i)=>{
+    const[x,y]=ptAt(i,5);
+    const sel=a.k===STATE.selectedAxis;
+    out+=`<line x1="${CX}" y1="${CY}" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width="${sel?2:1}" ${sel?'stroke-dasharray="none" opacity="1"':''}/>`;
+    const[lx,ly]=ptAt(i,5.62);
+    const anchor=Math.abs(lx-CX)<20?'middle':(lx<CX?'end':'start');
+    out+=`<text class="axLabel" data-axis="${a.k}" x="${lx}" y="${ly+3}" text-anchor="${anchor}" font-size="11" font-family="ui-monospace,monospace" fill="${sel?'var(--warn)':'var(--ink)'}" style="cursor:pointer" font-weight="${sel?'700':'400'}">${a.abbr}</text>`;
+  });
+  // prior ghost (flat 3)
+  out+=`<polygon points="${poly(null,()=>3)}" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2,4" opacity=".7"/>`;
+  // held figure A ghost
+  if(STATE.figureA){
+    out+=`<polygon points="${poly(null,k=>STATE.figureA.shown[k])}" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="2,4"/>`;
+  }
+  // shown channel: confidence band + solid line
+  out+=`<path d="${bandPath(snap.shown.theta,snap.shown.n)}" fill="var(--ink)" opacity=".12" fill-rule="evenodd"/>`;
+  out+=`<polygon points="${poly(null,k=>snap.shown.theta[k])}" fill="var(--ink)" opacity=".07"/>`;
+  out+=`<polygon points="${poly(null,k=>snap.shown.theta[k])}" fill="none" stroke="var(--ink)" stroke-width="2"/>`;
+  // told channel dashed
+  out+=`<polygon points="${poly(null,k=>snap.told.theta[k])}" fill="none" stroke="var(--warn)" stroke-width="2" stroke-dasharray="6,4"/>`;
+  // llm polygon
+  if(STATE.llmDims){
+    out+=`<polygon points="${poly(null,k=>STATE.llmDims[k])}" fill="none" stroke="var(--good)" stroke-width="1.6" stroke-dasharray="8,3,2,3"/>`;
+  }
+  // vertex dots for shown channel, sized by confidence
+  AXES.forEach((a,i)=>{
+    const[x,y]=ptAt(i,snap.shown.theta[a.k]);
+    out+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(2+2.5*confidence(snap.shown.n[a.k])).toFixed(1)}" fill="var(--ink)"/>`;
+  });
+  svg.innerHTML=out;
+  svg.querySelectorAll('.axLabel').forEach(t=>t.addEventListener('click',()=>selectAxis(t.dataset.axis)));
+}
+
+/* ---------- state & UI ---------- */
+const STATE={
+  turns:[],meta:{},audit:null,targetOverride:'',
+  fig:null,figureName:'',source:'pasted transcript',
+  scrubIdx:0,selectedAxis:'',figureA:null,llmDims:null,llmMeta:null
+};
+function currentSnap(){
+  if(!STATE.fig)return null;
+  return STATE.fig.snapshots[Math.min(STATE.scrubIdx,STATE.fig.snapshots.length-1)];
+}
+function renderAudit(){
+  const el=$('#ingestAudit');
+  if(!STATE.audit){el.textContent='Paste a transcript to run the ingestion audit.';$('#compileBtn').disabled=true;return}
+  const a=STATE.audit,label=a.level==='good'?'READY':a.level==='warn'?'CHECK':'BLOCKED';
+  const options=a.speakers.map(s=>`<option value="${esc(s)}" ${s===a.target?'selected':''}>${esc(s)}</option>`).join('');
+  el.innerHTML=`<div class="auditTop"><span class="auditState ${a.level}">${label}</span></div>
+   <div class="auditGrid">
+    <div class="auditCell"><b>${a.turnCount}</b><span>TURNS</span></div>
+    <div class="auditCell"><b>${a.speakers.length}</b><span>SPEAKERS</span></div>
+    <div class="auditCell"><b>${Math.round(a.coverage*100)}%</b><span>LABEL COVERAGE</span></div>
+    <div class="auditCell"><b>${a.targetTurns}</b><span>TARGET TURNS</span></div>
+    <div class="auditCell"><b>${a.targetWords}</b><span>TARGET WORDS</span></div>
+   </div>
+   ${a.speakers.length?`<div class="auditControl"><span style="font-size:9px;letter-spacing:.1em;color:var(--muted)">FIGURE SPEAKER</span><select id="targetSel">${options}</select></div>`:''}
+   <div class="notice">${a.issues.length?esc(a.issues.join(' ')):'Speaker structure looks usable. Evidence volume will set the confidence bands.'}</div>`;
+  el.querySelector('#targetSel')?.addEventListener('change',e=>{
+    STATE.targetOverride=e.target.value;runAudit();
+  });
+  $('#compileBtn').disabled=a.level==='bad';
+}
+let auditTimer=null;
+function runAudit(){
+  const raw=$('#pasteText').value.trim();
+  if(!raw){STATE.turns=[];STATE.audit=null;renderAudit();return}
+  const parsed=parseTranscriptTextDetailed(raw);
+  STATE.turns=parsed.turns;STATE.meta=parsed.meta;
+  STATE.audit=auditTranscript(parsed.turns,parsed.meta,STATE.targetOverride);
+  renderAudit();
+}
+$('#pasteText').addEventListener('input',()=>{clearTimeout(auditTimer);auditTimer=setTimeout(runAudit,180)});
+
+function compile(){
+  if(!STATE.audit||STATE.audit.level==='bad')return;
+  const target=STATE.audit.target;
+  STATE.fig=compileLatentProgram(STATE.turns,target);
+  STATE.figureName=target;
+  STATE.scrubIdx=STATE.fig.snapshots.length-1;
+  STATE.selectedAxis='';STATE.llmDims=null;STATE.llmMeta=null;$('#legendLLM').classList.add('hidden');
+  $('#figureSection').classList.remove('hidden');
+  const sc=$('#scrubber');sc.max=String(STATE.fig.snapshots.length-1);sc.value=String(STATE.scrubIdx);
+  renderAll();
+  $('#figureSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('#compileBtn').addEventListener('click',compile);
+
+function renderAll(){
+  const snap=currentSnap();if(!snap)return;
+  renderRadar(snap,STATE.fig);
+  renderAxisTable(snap);
+  renderMyth();
+  renderGaps();
+  renderEvidence();
+  renderCompare();
+  const totalEv=STATE.fig.evidence.length;
+  $('#figureLede').textContent=`${STATE.figureName} · ${STATE.fig.targetTurns.length} turns on the record · ${totalEv} evidence events across ${AXES.length} axes · ${STATE.source}`;
+  $('#scrubLabel').textContent=`turn ${STATE.scrubIdx}/${STATE.fig.snapshots.length-1}`;
+  $('#status').textContent=`${STATE.figureName} · ${totalEv} evidence events`;
+}
+$('#scrubber').addEventListener('input',e=>{STATE.scrubIdx=Number(e.target.value)||0;renderAll()});
+
+function renderAxisTable(snap){
+  const rows=AXES.map(a=>{
+    const s=snap.shown,t=snap.told;
+    const cs=confidence(s.n[a.k]),ct=confidence(t.n[a.k]);
+    const evCount=STATE.fig.evidence.filter(e=>e.axis===a.k).length;
+    const gap=Math.abs(t.theta[a.k]-s.theta[a.k])>=.7&&cs>.2&&ct>.2;
+    return`<tr data-axis="${a.k}" class="${a.k===STATE.selectedAxis?'sel':''}">
+      <td><b>${a.abbr}</b> <span style="color:var(--muted)">${a.label}</span></td>
+      <td class="v ${cs<.2?'cLow':''}">${s.n[a.k]?s.theta[a.k].toFixed(1):'·'}<span style="font-size:8px;color:var(--muted)"> ±${band(s.n[a.k]).toFixed(1)}</span></td>
+      <td class="v ${ct<.2?'cLow':''}" style="color:var(--warn)">${t.n[a.k]?t.theta[a.k].toFixed(1):'·'}</td>
+      <td style="color:var(--muted)">${evCount}${gap?' <span class="gapFlag">Δ</span>':''}</td>
+    </tr>`;
+  }).join('');
+  $('#axisTable').innerHTML=`<tr><th>AXIS</th><th>SHOWN</th><th>TOLD</th><th>EV</th></tr>${rows}`;
+  $('#axisTable').querySelectorAll('tr[data-axis]').forEach(tr=>tr.addEventListener('click',()=>selectAxis(tr.dataset.axis)));
+}
+function selectAxis(k){
+  STATE.selectedAxis=STATE.selectedAxis===k?'':k;
+  renderAll();
+  if(STATE.selectedAxis)$('#evidencePanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function renderMyth(){
+  const arch=deriveArchetypes(STATE.fig);
+  const llm=STATE.llmMeta;
+  const names=arch.length?arch.map(d=>d.name).join(' · '):'No archetype has earned evidence yet';
+  const strongest=arch[0];
+  const line=strongest
+    ?`Reads ${strongest.dev>0?'high':'low'} on ${strongest.label.toLowerCase()} (${blended(STATE.fig,strongest.k).toFixed(1)}), with ${strongest.n} evidence events behind it.`
+    :'The record has not yet pushed any axis far from its prior.';
+  $('#mythCard').innerHTML=`<span class="tag">DERIVED ARCHETYPES</span>
+    <h3>${esc(names)}</h3>
+    <p>${esc(line)}${llm?` <br><span style="font-size:11px">LLM modeler adds: ${esc((llm.archetypes||[]).join(', '))} — ${esc(llm.narrative||'')}</span>`:''}</p>`;
+}
+function renderGaps(){
+  const gaps=mythGaps(STATE.fig);
+  const contrasts=contrastFindings(STATE.fig);
+  const parts=[];
+  for(const g of gaps)parts.push(`<div style="margin-bottom:6px"><b style="color:var(--ink)">${g.label}</b> — tells ${g.told.toFixed(1)}, shows ${g.shown.toFixed(1)} (Δ${Math.abs(g.gap).toFixed(1)}): ${g.gap>0?'the story runs ahead of the manner — narrated '+g.label.toLowerCase()+' the speech pattern does not carry.':'the manner exceeds the story — the tape shows more '+g.label.toLowerCase()+' than the figure claims.'}</div>`);
+  for(const c of contrasts)parts.push(`<div style="margin-bottom:6px"><b style="color:var(--ink)">${c.la} × ${c.lb}</b> (${c.va.toFixed(1)} / ${c.vb.toFixed(1)}): ${esc(c.line)}</div>`);
+  $('#gapList').innerHTML=parts.length?parts.join('')
+    :'No confident divergence between the told and shown channels — on this record, the figure speaks the way it says it is.';
+}
+function renderEvidence(){
+  const panel=$('#evidencePanel');
+  if(!STATE.selectedAxis){panel.classList.add('hidden');return}
+  const ax=AXES.find(a=>a.k===STATE.selectedAxis);
+  const evts=STATE.fig.evidence.filter(e=>e.axis===ax.k);
+  const snap=currentSnap();
+  panel.classList.remove('hidden');
+  panel.innerHTML=`<h3>${ax.label} — evidence trail</h3>
+   <div class="notice" style="margin:0 0 8px">shown ${snap.shown.n[ax.k]?snap.shown.theta[ax.k].toFixed(2):'— (prior)'} from ${snap.shown.n[ax.k]} manner observation${snap.shown.n[ax.k]===1?'':'s'} · told ${snap.told.n[ax.k]?snap.told.theta[ax.k].toFixed(2):'— (prior)'} from ${snap.told.n[ax.k]} story observation${snap.told.n[ax.k]===1?'':'s'} · update rule θ ← θ + (v−θ)/(n+2)</div>
+   ${evts.length?evts.map(e=>`<div class="evRow">
+     <span class="evMeta">[T${e.turn}] ${e.ch==='manner'?'SHOWN':'TOLD'}</span>
+     <span class="${e.dir>0?'dirUp':'dirDown'}">${e.dir>0?'▲':'▼'} ${e.w}</span>
+     <div class="q">${esc(e.pre)}<mark>${esc(e.match)}</mark>${esc(e.post)}</div>
+   </div>`).join(''):'<div class="notice">No evidence on this axis — the score shown is the untouched prior with a full-width band.</div>'}`;
+}
+
+/* ---------- compare / export ---------- */
+$('#holdBtn').addEventListener('click',()=>{
+  if(!STATE.fig)return;
+  STATE.figureA={name:STATE.figureName,shown:{...STATE.fig.shown.theta},told:{...STATE.fig.told.theta}};
+  $('#exportNote').textContent=`"${STATE.figureName}" held as figure A — ingest another transcript to compare.`;
+  renderAll();
+});
+function renderCompare(){
+  const block=$('#compareBlock');
+  if(!STATE.figureA||STATE.figureA.name===STATE.figureName&&!STATE.fig){block.classList.add('hidden');return}
+  if(!STATE.figureA){block.classList.add('hidden');return}
+  block.classList.remove('hidden');
+  $('#compareLede').textContent=`Figure A "${STATE.figureA.name}" (dotted ghost on the radar) vs current "${STATE.figureName}" — shown-channel deltas:`;
+  const rows=AXES.map(a=>{
+    const d=STATE.fig.shown.theta[a.k]-STATE.figureA.shown[a.k];
+    const pct=Math.min(100,Math.abs(d)/4*100);
+    return`<div class="deltaRow"><span>${a.label}</span><div class="deltaBar"><span style="left:${d<0?50-pct/2:50}%;width:${pct/2}%"></span></div><span style="text-align:right">${d>=0?'+':''}${d.toFixed(1)}</span></div>`;
+  }).join('');
+  $('#deltaList').innerHTML=rows;
+}
+function exportArtifact(){
+  if(!STATE.fig)return;
+  const snap=STATE.fig.snapshots[STATE.fig.snapshots.length-1];
+  const artifact={
+    schema:'centaur-figure/1',
+    exported_at:new Date().toISOString(),
+    name:STATE.figureName,
+    source:STATE.source,
+    dims:Object.fromEntries(AXES.map(a=>[a.k,Math.round(blended(STATE.fig,a.k)*100)/100])),
+    channels:{
+      shown:{theta:snap.shown.theta,observations:snap.shown.n},
+      told:{theta:snap.told.theta,observations:snap.told.n}
+    },
+    confidence:Object.fromEntries(AXES.map(a=>[a.k,Math.round(confidence(snap.shown.n[a.k]+snap.told.n[a.k])*100)/100])),
+    archetypes:deriveArchetypes(STATE.fig).map(d=>d.name),
+    myth_gaps:mythGaps(STATE.fig).map(g=>({axis:g.k,told:+g.told.toFixed(2),shown:+g.shown.toFixed(2)})),
+    evidence_events:STATE.fig.evidence.length,
+    target_turns:STATE.fig.targetTurns.length,
+    llm:STATE.llmDims?{dims:STATE.llmDims,meta:STATE.llmMeta}:null
+  };
+  const blob=new Blob([JSON.stringify(artifact,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`centaur-figure-${STATE.figureName.toLowerCase().replace(/[^a-z0-9]+/g,'-')||'figure'}.json`;
+  a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  $('#exportNote').textContent='Exported. Load it in the Centaur Box via IMPORT FIGURE.';
+}
+$('#exportBtn').addEventListener('click',exportArtifact);
+$('#copyBeliefBtn').addEventListener('click',async()=>{
+  if(!STATE.fig)return;
+  const belief=Object.fromEntries(AXES.map(a=>[a.k,Math.round(blended(STATE.fig,a.k)*100)/100]));
+  try{await navigator.clipboard.writeText(JSON.stringify(belief,null,2));$('#exportNote').textContent='Centaur Belief JSON copied to clipboard.'}
+  catch(e){$('#exportNote').textContent=JSON.stringify(belief)}
+});
+
+/* ---------- FIGURE CORPS JSON import ---------- */
+$('#importBtn').addEventListener('click',()=>$('#importFile').click());
+$('#importFile').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];e.target.value='';if(!file)return;
+  try{
+    const j=JSON.parse(await file.text());
+    let turns=null,target='',label=file.name;
+    if(j.schema&&String(j.schema).startsWith('figure-corps-run')){
+      turns=j.evidence?.turns;target=j.evidence?.target_speaker||'';
+      label=`figure-corps run · ${j.source?.record?.name||j.source?.record_id||file.name}`;
+    }else if(Array.isArray(j.minted)&&j.minted.length){
+      const withT=j.minted.find(f=>f.transcript?.turns?.length)||j.minted[0];
+      turns=withT.transcript?.turns;target=withT.targetSpeaker||'';
+      label=`minted figure · ${withT.subject||withT.slug}`;
+    }else if(Array.isArray(j.turns)){turns=j.turns}
+    else if(Array.isArray(j)){turns=j}
+    if(!turns||!turns.length)throw Error('No transcript turns found in this JSON. Expected a figure-corps-run export, a studio file with minted figures, or a turns array.');
+    const clean=mergeAdjacentTurns(turns.map(t=>({speaker:t.speaker??t.role??t.name??'',text:t.text??t.content??''})));
+    if(clean.length<4)throw Error('Fewer than four usable speaker turns in the imported JSON.');
+    STATE.turns=clean;STATE.meta={coverage:1,ignoredLines:0};
+    STATE.targetOverride=target;STATE.source=label;
+    $('#pasteText').value=clean.map(t=>`${t.speaker}: ${t.text}`).join('\n\n');
+    STATE.audit=auditTranscript(clean,STATE.meta,target);
+    renderAudit();
+    if(STATE.audit.level!=='bad')compile();
+  }catch(err){
+    $('#ingestAudit').innerHTML=`<span class="auditState bad">BLOCKED</span><div class="notice">${esc(err.message)}</div>`;
+  }
+});
+
+/* ---------- optional LLM modeler ---------- */
+$('#llmForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!STATE.fig){$('#llmNote').textContent='Compile a figure first.';return}
+  const base=$('#llmBase').value.trim().replace(/\/+$/,''),key=$('#llmKey').value.trim(),model=$('#llmModel').value.trim();
+  if(!base||!model){$('#llmNote').textContent='Base URL and model ID are required.';return}
+  $('#llmNote').textContent='Modeler running…';
+  const turnsTxt=STATE.fig.targetTurns.slice(0,60).map(t=>`[T${t.i}] ${t.text}`).join('\n').slice(0,24000);
+  const prompt=`You are a neutral analyst. Model the latent conversational disposition of one recorded speaker using ONLY the numbered turns below. Do NOT infer demographics, politics, health, or any sensitive attribute.
+Return STRICT JSON: {"dims":{${AXES.map(a=>`"${a.k}":3`).join(',')}},"evidence":{"<axis>":[turn numbers that justify the score]},"myth":{"archetypes":["..."],"narrative":"1-2 sentences on their conversational self-presentation"},"tone":"one word"}.
+All ${AXES.length} dims required, values 1-5. Every dim scored away from 3 MUST cite at least one turn number in "evidence". If the turns give no evidence for a dim, leave it at 3 and cite nothing.
+
+TURNS OF ${STATE.figureName}:
+${turnsTxt}`;
+  try{
+    const res=await fetch(base+'/chat/completions',{method:'POST',
+      headers:{'Content-Type':'application/json',...(key?{Authorization:'Bearer '+key}:{})},
+      body:JSON.stringify({model,temperature:.4,messages:[
+        {role:'system',content:'Return ONLY valid JSON.'},
+        {role:'user',content:prompt}]})});
+    if(!res.ok)throw Error('HTTP '+res.status+': '+(await res.text()).slice(0,180));
+    const j=await res.json();
+    const raw=j.choices?.[0]?.message?.content?.trim()||'{}';
+    const m=raw.match(/\{[\s\S]*\}/);const payload=JSON.parse(m?m[0]:raw);
+    const dims={};
+    for(const a of AXES)dims[a.k]=clamp(Number(payload.dims?.[a.k]??3)||3,1,5);
+    STATE.llmDims=dims;
+    STATE.llmMeta={archetypes:Array.isArray(payload.myth?.archetypes)?payload.myth.archetypes:[],
+      narrative:typeof payload.myth?.narrative==='string'?payload.myth.narrative:'',
+      tone:payload.tone||'',evidence:payload.evidence||{}};
+    $('#legendLLM').classList.remove('hidden');
+    const cited=Object.values(STATE.llmMeta.evidence).flat().length;
+    $('#llmNote').textContent=`Modeler returned dims with ${cited} turn citation${cited===1?'':'s'} · drawn as the green polygon. It supplements the deterministic estimate; it does not replace it.`;
+    renderAll();
+  }catch(err){$('#llmNote').textContent='Modeler failed: '+err.message}
+});
+
+/* ---------- sample ---------- */
+$('#sampleBtn').addEventListener('click',()=>{
+  $('#pasteText').value=`ER: When did you first know you were going to leave?
+
+HR: Oh, I decided right then and there. I packed up my bags that same night — no question about it, I never looked back. Everybody said it was too risky, a gamble, but I took the chance.
+
+ER: Were you scared?
+
+HR: I guess I was, maybe. I don't know, sort of. My hands were shaking on the bus, I remember that. I was so nervous I couldn't eat. But I kept telling myself — you have to do this, you must.
+
+ER: What was the work like when you got there?
+
+HR: Hard work, every day. I planned every dollar, saved careful, kept a schedule. Because if you didn't plan, you didn't eat — that was the reason I wrote everything down. In 1962 I finally had enough saved.
+
+ER: And the people?
+
+HR: Oh, the friends I made! We danced, we laughed, everybody came to my kitchen. [laughs] I could see they were hurting too, all of us far from home, and I understood them. You helped each other. That was that.
+
+ER: Do you ever regret it?
+
+HR: Listen — let me tell you something. I made my own life. Maybe I lost some things, I suppose. But I knew exactly what I wanted, and I was in charge of it. No doubt about it.`;
+  STATE.targetOverride='HR';STATE.source='sample transcript';
+  runAudit();
+});
+})();
+</script>
+</body>
+</html>
