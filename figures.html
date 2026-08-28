@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>CENTAUR FIGURES — latent-program encounter instrument</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23fffdf7'/%3E%3Cpath d='M16 4l3 8h8l-6.5 5 2.5 8-7-5-7 5 2.5-8L5 12h8z' fill='none' stroke='%23181814' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 :root{
   color-scheme:light dark;
@@ -26,87 +27,136 @@ button{cursor:pointer}
 button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .hidden{display:none!important}
 #app{height:100dvh;display:grid;grid-template-rows:auto 1fr auto;background:var(--paper)}
-header{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)}
+header{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line);min-height:40px}
 .brand{font-weight:900;letter-spacing:.11em;white-space:nowrap}
+.brand:before{content:'◜◝';display:inline-block;margin-right:7px;letter-spacing:-.32em;transform:translateX(-.08em);font-weight:400}
 #status{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.iconBtn{border:0;background:transparent;padding:8px;color:var(--muted);min-width:38px}
+.iconBtn{border:0;background:transparent;padding:8px;color:var(--muted);min-width:38px;font-size:11px;letter-spacing:.06em}
 #stage{position:relative;min-height:0;overflow:hidden}
 .view{position:absolute;inset:0;display:grid;place-items:center;padding:14px;overflow:hidden}
-.primary{border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:10px 14px;min-height:42px}
-.quiet{border:0;background:transparent;color:var(--muted);padding:6px 8px;font-size:9px;letter-spacing:.08em}
+.primary{border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:10px 16px;min-height:44px;font-size:14px}
+.quiet{border:0;background:transparent;color:var(--muted);padding:8px 9px;font-size:11px;letter-spacing:.05em}
 .quiet[aria-pressed=true]{color:var(--warn);font-weight:800}
 #actionBar{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid var(--line);min-width:0}
-#actionNote{font-size:9px;color:var(--muted);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#actionNote{font-size:10px;color:var(--muted);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #primaryAction{margin-left:auto;white-space:nowrap}
-/* ingest */
+body[data-view="chat"] #actionBar{display:none!important}
+/* ---- ingest ---- */
 .ingestBox{width:min(720px,94vw);display:grid;gap:8px}
-.ingestBox h1{font:700 24px/1.1 ui-serif,Georgia,serif;margin:0}
-.ingestBox textarea{width:100%;height:44vh;resize:none;border:1px solid var(--line);background:transparent;padding:12px;font:15px/1.5 ui-serif,Georgia,serif}
-#auditLine{font-size:10px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-height:30px}
-#auditLine select{border:1px solid var(--line);background:transparent;padding:4px;font-size:10px}
-.auditState{font-weight:900;font-size:10px;letter-spacing:.08em}
+.ingestBox h1{font:700 clamp(24px,5vw,32px)/1.05 ui-serif,Georgia,serif;margin:0}
+.ingestBox textarea{width:100%;height:40vh;resize:none;border:1px solid var(--line);background:transparent;padding:12px;font:15px/1.5 ui-serif,Georgia,serif}
+#auditLine{font-size:11px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-height:32px;line-height:1.5}
+#auditLine select{border:1px solid var(--line);background:transparent;padding:6px;font-size:11px}
+.auditState{font-weight:900;font-size:11px;letter-spacing:.08em}
 .auditState.good{color:var(--good)}.auditState.warn{color:var(--warn)}.auditState.bad{color:var(--bad)}
-/* figure view */
-#figureView{padding:0}
-#radarBox{position:absolute;inset:0;display:grid;place-items:center;padding:6px 6px 132px}
-#radarSvg{width:100%;height:100%;max-width:860px;display:block;user-select:none;touch-action:none}
+/* ---- figure view: radar flows into card, no dead space ---- */
+#figureView{padding:0;display:grid;grid-template-rows:minmax(0,1fr) auto;justify-items:center;overflow:hidden}
+#radarBox{min-height:0;min-width:0;width:100%;height:100%;display:grid;place-items:center;padding:2px 2px 0}
+#radarSvg{width:100%;height:100%;max-width:780px;display:block;user-select:none;touch-action:none}
 #figCard{
-  position:absolute;left:50%;bottom:12px;transform:translateX(-50%);
-  width:min(680px,calc(100% - 24px));background:color-mix(in srgb,var(--paper) 96%,transparent);
-  border:1px solid var(--line);padding:10px 12px;backdrop-filter:blur(8px)
+  width:min(680px,calc(100% - 16px));margin:4px 0 8px;
+  background:var(--paper);border:1px solid var(--line);padding:10px 14px 8px
 }
-#figName{font:700 19px/1.1 ui-serif,Georgia,serif;margin:0}
-#figMyth{font:12px/1.35 ui-serif,Georgia,serif;color:var(--muted);margin:3px 0 0}
+#figName{font:700 clamp(18px,4.5vw,22px)/1.15 ui-serif,Georgia,serif;margin:0}
+#figMyth{font:13px/1.4 ui-serif,Georgia,serif;color:var(--muted);margin:4px 0 0}
+#legendRow{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin-top:7px}
+#legendRow .sw{display:inline-block;width:15px;height:0;border-top:2.5px solid var(--ink);vertical-align:middle;margin-right:4px}
+#legendRow .sw.told{border-top-style:dashed;border-top-color:var(--warn)}
+#legendRow .sw.band{height:9px;border:0;background:color-mix(in srgb,var(--ink) 14%,transparent)}
+#legendRow .sw.steer{border-top-color:var(--blue)}
+#legendRow .sw.perf{border-top-color:var(--bad);border-top-style:dotted}
 .scrub{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;margin-top:7px}
-.scrub input[type=range]{width:100%;accent-color:var(--ink)}
-.scrub .t{font-size:9px;color:var(--muted);white-space:nowrap}
-.cardBtns{display:flex;gap:2px;margin-top:2px;align-items:center;flex-wrap:wrap}
-.cardBtns .quiet{padding:4px 6px}
-#cardNote{font-size:9px;color:var(--muted);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* chat view */
-#chatView{padding:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.scrub input[type=range]{width:100%;accent-color:var(--ink);height:26px}
+.scrub .t{font-size:10px;color:var(--muted);white-space:nowrap}
+.cardBtns{display:flex;gap:0;margin-top:3px;align-items:center;flex-wrap:wrap}
+.cardBtns .quiet{padding:9px 8px}
+#cardNote{font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ---- chat view: 1.6.3 script reader ---- */
+#chatView{padding:0;display:grid;grid-template-columns:minmax(0,1fr);place-items:stretch}
 @media(min-width:920px){#chatView{grid-template-columns:minmax(0,1fr) 320px}}
-#chatMain{display:grid;grid-template-rows:auto 1fr auto;min-width:0;min-height:0}
-#chatBar{display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line)}
-#chatBar select{border:1px solid var(--line);background:transparent;padding:6px;font-size:10px;min-width:0;max-width:46vw}
-#prose{min-height:0;overflow:auto;padding:clamp(16px,3vw,34px) max(16px,calc((100% - 680px)/2));font:18px/1.6 ui-serif,Georgia,serif}
-.turn{margin:0 0 1.15em}
-.turn.visitor{font-style:italic;color:var(--muted)}
-.turn.system{font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);border-left:1px solid var(--line);padding-left:10px}
-.turnLabel{display:block;font:8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;color:var(--muted);margin-bottom:3px}
-.composer{display:grid;grid-template-columns:1fr auto;gap:8px;border-top:1px solid var(--line);padding:8px 10px}
-.composer textarea{resize:none;border:0;background:transparent;min-height:42px;max-height:96px;padding:8px 4px;font:16px/1.3 ui-serif,Georgia,serif}
-.composer button{border:0;background:transparent;padding:8px 10px;font-weight:800}
+#chatMain{display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-width:0;min-height:0}
+#chatStrip{grid-row:1;display:flex;gap:10px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line);min-height:44px}
+#chatMain>#prose{grid-row:2}
+#chatMain>.composer{grid-row:3}
+#stripName{font:700 13px/1.1 ui-serif,Georgia,serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#driftChip{font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#driftChip b{color:var(--bad)}
+@media(min-width:920px){#chatStrip{display:none}}
+#prose{
+  min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:18px max(16px,calc((100% - 640px)/2)) 40px;
+  font:15px/1.55 "Courier Prime",Courier,"Courier New",monospace;scroll-behavior:smooth
+}
+.programNote{font:11px/1.5 ui-serif,Georgia,serif;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:10px;margin:0 0 22px}
+.programNote strong{color:var(--ink);font-weight:600}
+.sp-blk{max-width:360px;margin:0 auto 1.35em}
+.sp-cue{text-align:center;font-weight:700;letter-spacing:.13em;text-transform:uppercase;margin:0 0 2px;font-size:12px}
+.turn.visitor .sp-cue{color:var(--muted)}
+.turn.figure .sp-cue{color:var(--ink)}
+.sp-dlg{margin:0}
+.turn.visitor .sp-dlg{color:var(--muted)}
+.turn{margin:0}
+.turn.system{font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);border-left:1px solid var(--line);padding-left:10px;margin:0 0 1.4em;max-width:520px}
+.replyPending{text-align:center;color:var(--muted);font-style:italic;margin:0 0 1.35em}
+.composer{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;
+  border-top:1px solid var(--line);padding:8px 10px 6px;background:var(--paper)
+}
+.composer textarea{grid-column:1;resize:none;border:0;background:transparent;min-height:40px;max-height:80px;padding:7px 4px;font:16px/1.35 ui-serif,Georgia,serif}
+.composer .sendBtn{grid-column:2;grid-row:1;border:0;background:transparent;padding:8px 10px;font-weight:800;font-size:12px}
+.composerTools{grid-column:1/-1;display:flex;align-items:center;gap:2px;min-width:0;border-top:1px solid var(--line);padding-top:5px}
+.composerTools select{border:1px solid var(--line);background:transparent;padding:5px 6px;font-size:10px;min-width:0;max-width:38vw}
+.composerTools button{border:0;background:transparent;font-size:10px;color:var(--muted);font-weight:600;padding:6px 8px;letter-spacing:.04em;white-space:nowrap}
+#chatNote{margin-left:auto;font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #chatSide{display:none;border-left:1px solid var(--line);padding:10px;min-height:0;overflow:hidden;grid-template-rows:auto minmax(0,1fr) auto;gap:6px}
 @media(min-width:920px){#chatSide{display:grid}}
-#chatSide .t{font-size:9px;letter-spacing:.1em;color:var(--muted)}
+#chatSide .t{font-size:10px;letter-spacing:.1em;color:var(--muted)}
 #sideRadar{width:100%;height:100%;min-height:0}
-#driftNote{font-size:10px;color:var(--muted);line-height:1.5}
+#driftNote{font-size:11px;color:var(--muted);line-height:1.5}
 #driftNote b{color:var(--bad)}
-/* sheet */
+/* ---- sheet ---- */
 #sheet{position:absolute;inset:0 0 0 auto;width:min(520px,100%);background:var(--paper);border-left:1px solid var(--line);z-index:20;display:grid;grid-template-rows:auto 1fr}
 .sheetHead{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--line)}
-.sheetHead strong{font-size:10px;letter-spacing:.09em}
+.sheetHead strong{font-size:11px;letter-spacing:.09em}
 .sheetHead button{margin-left:auto}
-.sheetBody{overflow:auto;padding:12px}
+.sheetBody{overflow:auto;padding:14px}
 .sheetBody h3{font:700 15px ui-serif,Georgia,serif;margin:0 0 8px}
 .sheetBody p{font:14px/1.55 ui-serif,Georgia,serif;color:var(--muted);margin:0 0 .8em}
-.notice{font-size:10px;color:var(--muted)}
-.evRow{border-bottom:1px solid var(--line);padding:7px 0;font-size:10px}
+.notice{font-size:11px;color:var(--muted);line-height:1.5}
+.evRow{border-bottom:1px solid var(--line);padding:8px 0;font-size:11px}
 .evRow:last-child{border-bottom:0}
-.evRow .q{font:13px/1.4 ui-serif,Georgia,serif;margin-top:3px}
+.evRow .q{font:13px/1.45 ui-serif,Georgia,serif;margin-top:3px}
 .evRow mark{background:color-mix(in srgb,var(--warn) 30%,transparent);color:inherit;padding:0 2px}
 .evMeta{color:var(--muted)}
 .dirUp{color:var(--good);font-weight:700}
 .dirDown{color:var(--bad);font-weight:700}
-.sheetForm{display:grid;gap:6px;margin-top:10px}
-.sheetForm input{border:1px solid var(--line);background:transparent;padding:8px;min-width:0}
-.sheetForm button{border:1px solid var(--line);background:transparent;padding:8px}
+.sheetForm{display:grid;gap:7px;margin-top:10px}
+.sheetForm input{border:1px solid var(--line);background:transparent;padding:10px;min-width:0}
+.sheetForm button{border:1px solid var(--line);background:transparent;padding:10px}
 pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px solid var(--line);padding:10px;font-size:9px;max-height:40vh;overflow:auto}
-@media(max-width:680px){#radarBox{padding-bottom:154px}.brand{font-size:11px}}
+@media(max-width:680px){
+  .brand{font-size:11px}
+  .cardBtns .quiet{font-size:10px;padding:9px 6px}
+  #figCard{padding:9px 11px 6px}
+  #legendRow{gap:10px;font-size:9px}
+}
+/* ---- 1.6.3 print clean: the encounter prints as a monochrome script ---- */
+@page{size:letter;margin:.48in .58in .5in}
+@media print{
+  html,body{width:auto!important;height:auto!important;overflow:visible!important;background:#fff!important;color:#000!important}
+  body[data-view="chat"]:before{content:attr(data-print-name) " — CENTAUR FIGURES";display:block;margin:0 0 10pt;padding:0 0 4pt;border-bottom:.5pt solid #aaa;font:700 8pt/1.1 Arial,Helvetica,sans-serif;letter-spacing:.08em;color:#000}
+  header,#actionBar,#chatStrip,.composer,#chatSide,#sheet,#figureView,#ingestView{display:none!important}
+  #app,#stage,#chatView,#chatMain,#prose{display:block!important;position:static!important;inset:auto!important;width:auto!important;height:auto!important;min-height:0!important;overflow:visible!important;margin:0!important;padding:0!important;background:#fff!important;color:#000!important}
+  #prose{font:10pt/1.25 "Courier Prime",Courier,"Courier New",monospace!important}
+  .programNote{border-bottom:.5pt solid #bbb!important;color:#555!important;font:7pt/1.25 Arial,Helvetica,sans-serif!important;margin:0 0 13pt!important;padding:0 0 6pt!important}
+  .turn.system,.replyPending{display:none!important}
+  .sp-blk{width:3.45in!important;max-width:3.45in!important;margin:0 auto 9pt!important;break-inside:avoid!important}
+  .sp-cue{font:700 8.5pt/1.1 "Courier Prime",Courier,"Courier New",monospace!important;color:#000!important;margin:0 0 2pt!important}
+  .sp-dlg{font:10pt/1.25 "Courier Prime",Courier,"Courier New",monospace!important;color:#000!important}
+}
 </style>
 </head>
-<body>
+<body data-view="ingest">
 <div id="app">
 <header>
   <div class="brand">CENTAUR FIGURES</div>
@@ -121,7 +171,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
       <h1>Figure → radar → encounter</h1>
       <textarea id="pasteText" aria-label="Transcript" placeholder="Paste a StoryCorps transcript (ER: / HR: labels). The figure's latent program is inferred from evidence, drawn as a radar, and performed in chat."></textarea>
       <div id="auditLine">Paste a transcript, or LOAD SAMPLE.</div>
-      <div style="display:flex;gap:4px">
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
         <button id="sampleBtn" class="quiet" type="button">LOAD SAMPLE</button>
         <button id="importBtn" class="quiet" type="button">IMPORT FIGURE-CORPS JSON</button>
         <input id="importFile" class="hidden" type="file" accept="application/json,.json">
@@ -130,10 +180,17 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
   </section>
 
   <section id="figureView" class="view hidden">
-    <div id="radarBox"><svg id="radarSvg" viewBox="0 0 720 600" role="img" aria-label="Psychological profile radar"></svg></div>
+    <div id="radarBox"><svg id="radarSvg" viewBox="0 0 720 552" role="img" aria-label="Psychological profile radar"></svg></div>
     <article id="figCard">
       <h1 id="figName"></h1>
       <p id="figMyth"></p>
+      <div id="legendRow">
+        <span><span class="sw"></span>shown</span>
+        <span><span class="sw told"></span>told</span>
+        <span><span class="sw band"></span>±confidence</span>
+        <span id="legSteer" class="hidden"><span class="sw steer"></span>steered</span>
+        <span id="legPerf" class="hidden"><span class="sw perf"></span>performance</span>
+      </div>
       <div class="scrub">
         <input id="scrubber" type="range" min="0" max="0" step="1" value="0" aria-label="Evidence scrubber">
         <span class="t" id="scrubLabel"></span>
@@ -151,22 +208,27 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
 
   <section id="chatView" class="view hidden">
     <div id="chatMain">
-      <div id="chatBar">
-        <select id="chatModel" aria-label="Model"><option value="">finding models…</option></select>
-        <button id="addModelBtn" class="quiet" type="button">ADD MODEL</button>
-        <button id="radarPeekBtn" class="quiet" type="button">RADAR</button>
-        <span id="chatNote" class="notice" style="margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+      <div id="chatStrip">
+        <span id="stripName"></span>
+        <span id="driftChip"></span>
       </div>
       <div id="prose" aria-live="polite"></div>
       <form id="composer" class="composer">
         <textarea id="visitorText" aria-label="What do you say?" placeholder="What do you say?"></textarea>
-        <button type="submit">SEND</button>
+        <button class="sendBtn" type="submit">SEND</button>
+        <div class="composerTools">
+          <select id="chatModel" aria-label="Model"><option value="">finding models…</option></select>
+          <button id="addModelBtn" type="button">ADD MODEL</button>
+          <button id="radarPeekBtn" type="button">RADAR</button>
+          <button id="printBtn" type="button">PRINT</button>
+          <span id="chatNote"></span>
+        </div>
       </form>
     </div>
     <aside id="chatSide">
       <span class="t">PROGRAM vs PERFORMANCE</span>
-      <svg id="sideRadar" viewBox="0 0 720 600" aria-label="Live performance radar"></svg>
-      <div id="driftNote">The red polygon is the figure's generated speech, scored by the same evidence engine. Watch whether the performance stays inside the program.</div>
+      <svg id="sideRadar" viewBox="0 0 720 552" aria-label="Live performance radar"></svg>
+      <div id="driftNote">The red polygon is the figure's generated speech, scored by the same evidence engine.</div>
     </aside>
   </section>
 
@@ -205,7 +267,7 @@ const AXES=[
 ];
 const flat3=()=>Object.fromEntries(AXES.map(a=>[a.k,3]));
 
-/* ---------- transcript parsing (FIGURE CORPS 1.0-auto machinery) ---------- */
+/* ---------- transcript parsing (FIGURE CORPS machinery) ---------- */
 function cleanSpeakerLabel(s){return String(s||'').replace(/^[\-–—\s]+|[\-–—\s]+$/g,'').replace(/\s+/g,' ').trim()}
 function plausibleSpeakerLabel(s){
   s=cleanSpeakerLabel(s);
@@ -466,8 +528,8 @@ function contrastFindings(fig){
     la:AXES.find(x=>x.k===c.a[1]).label,lb:AXES.find(x=>x.k===c.b[1]).label}));
 }
 
-/* ---------- radar ---------- */
-const CX=360,CY=286,R=218;
+/* ---------- radar (SVG, sized for phones: big type, no dead band) ---------- */
+const CX=360,CY=278,R=196;
 function ptAt(axisIdx,v){
   const ang=(axisIdx/AXES.length)*Math.PI*2-Math.PI/2;
   const r=R*clamp(v,0,5)/5;
@@ -491,23 +553,23 @@ function renderRadarInto(svg,snap,opts={}){
   for(let ring=1;ring<=5;ring++){
     const r=R*ring/5;
     out+=`<circle cx="${CX}" cy="${CY}" r="${r}" fill="none" stroke="var(--line)" stroke-width="1"/>`;
-    if(!small)out+=`<text x="${CX+3}" y="${CY-r-3}" font-size="9" fill="var(--muted)" font-family="ui-monospace,monospace">${ring}</text>`;
+    if(!small&&ring>1)out+=`<text x="${CX+5}" y="${CY-r+14}" font-size="12" fill="var(--muted)" font-family="ui-monospace,monospace">${ring}</text>`;
   }
   AXES.forEach((a,i)=>{
     const[x,y]=ptAt(i,5);
     const sel=!small&&a.k===STATE.selectedAxis;
-    out+=`<line x1="${CX}" y1="${CY}" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width="${sel?2:1}"/>`;
-    const[lx,ly]=ptAt(i,small?5.55:5.7);
-    const anchor=Math.abs(lx-CX)<20?'middle':(lx<CX?'end':'start');
+    out+=`<line x1="${CX}" y1="${CY}" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width="${sel?2.5:1}"/>`;
+    const[lx,ly]=ptAt(i,small?5.6:5.72);
+    const anchor=Math.abs(lx-CX)<24?'middle':(lx<CX?'end':'start');
     if(small){
-      out+=`<text x="${lx}" y="${ly+4}" text-anchor="${anchor}" font-size="13" font-family="ui-monospace,monospace" fill="var(--muted)">${a.abbr}</text>`;
+      out+=`<text x="${lx}" y="${ly+6}" text-anchor="${anchor}" font-size="18" font-family="ui-monospace,monospace" fill="var(--muted)">${a.abbr}</text>`;
     }else{
       const s=snap.shown,t=snap.told;
       const vTxt=STATE.steer[a.k]!=null?STATE.steer[a.k].toFixed(1):(s.n[a.k]?s.theta[a.k].toFixed(1):(t.n[a.k]?t.theta[a.k].toFixed(1):'·'));
       out+=`<g class="axG" data-axis="${a.k}" style="cursor:pointer">
-        <text x="${lx}" y="${ly-3}" text-anchor="${anchor}" font-size="12" font-family="ui-monospace,monospace" fill="${sel?'var(--warn)':'var(--ink)'}" font-weight="${sel?'700':'400'}">${a.abbr}</text>
-        <text x="${lx}" y="${ly+10}" text-anchor="${anchor}" font-size="10" font-family="ui-monospace,monospace" fill="${STATE.steer[a.k]!=null?'var(--blue)':'var(--muted)'}">${vTxt}</text>
-        <rect x="${lx-(anchor==='end'?46:anchor==='middle'?23:0)}" y="${ly-14}" width="46" height="28" fill="transparent"/>
+        <text x="${lx}" y="${ly-2}" text-anchor="${anchor}" font-size="21" font-weight="${sel?'800':'700'}" font-family="ui-monospace,monospace" fill="${sel?'var(--warn)':'var(--ink)'}">${a.abbr}</text>
+        <text x="${lx}" y="${ly+17}" text-anchor="${anchor}" font-size="15" font-family="ui-monospace,monospace" fill="${STATE.steer[a.k]!=null?'var(--blue)':'var(--muted)'}">${vTxt}</text>
+        <rect x="${lx-(anchor==='end'?62:anchor==='middle'?31:0)}" y="${ly-22}" width="62" height="44" fill="transparent"/>
       </g>`;
     }
   });
@@ -515,43 +577,30 @@ function renderRadarInto(svg,snap,opts={}){
   if(STATE.figureA&&!small)out+=`<polygon points="${poly(k=>STATE.figureA.shown[k])}" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="2,4"/>`;
   out+=`<path d="${bandPath(snap.shown.theta,snap.shown.n)}" fill="var(--ink)" opacity=".12" fill-rule="evenodd"/>`;
   out+=`<polygon points="${poly(k=>snap.shown.theta[k])}" fill="var(--ink)" opacity=".07"/>`;
-  out+=`<polygon points="${poly(k=>snap.shown.theta[k])}" fill="none" stroke="var(--ink)" stroke-width="2"/>`;
-  out+=`<polygon points="${poly(k=>snap.told.theta[k])}" fill="none" stroke="var(--warn)" stroke-width="2" stroke-dasharray="6,4"/>`;
-  if(STATE.llmDims)out+=`<polygon points="${poly(k=>STATE.llmDims[k])}" fill="none" stroke="var(--good)" stroke-width="1.6" stroke-dasharray="8,3,2,3"/>`;
-  // steering target (dragged program) in blue
+  out+=`<polygon points="${poly(k=>snap.shown.theta[k])}" fill="none" stroke="var(--ink)" stroke-width="2.5"/>`;
+  out+=`<polygon points="${poly(k=>snap.told.theta[k])}" fill="none" stroke="var(--warn)" stroke-width="2.5" stroke-dasharray="7,5"/>`;
+  if(STATE.llmDims)out+=`<polygon points="${poly(k=>STATE.llmDims[k])}" fill="none" stroke="var(--good)" stroke-width="2" stroke-dasharray="9,4,2,4"/>`;
   if(Object.keys(STATE.steer).length){
     const eff=effectiveDims();
-    out+=`<polygon points="${poly(k=>eff[k])}" fill="none" stroke="var(--blue)" stroke-width="2"/>`;
+    out+=`<polygon points="${poly(k=>eff[k])}" fill="none" stroke="var(--blue)" stroke-width="2.5"/>`;
     AXES.forEach((a,i)=>{
       if(STATE.steer[a.k]==null)return;
       const[x,y]=ptAt(i,STATE.steer[a.k]);
-      out+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="var(--blue)"/>`;
+      out+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="var(--blue)"/>`;
     });
   }
-  // live performance polygon in red (axes with evidence only get dots; polygon uses theta)
   if(STATE.perfActive){
-    out+=`<polygon points="${poly(k=>STATE.perf.theta[k])}" fill="none" stroke="var(--bad)" stroke-width="1.8" stroke-dasharray="3,3"/>`;
+    out+=`<polygon points="${poly(k=>STATE.perf.theta[k])}" fill="none" stroke="var(--bad)" stroke-width="2.2" stroke-dasharray="3,4"/>`;
     AXES.forEach((a,i)=>{
       if(!STATE.perf.n[a.k])return;
       const[x,y]=ptAt(i,STATE.perf.theta[a.k]);
-      out+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.2" fill="var(--bad)"/>`;
+      out+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="var(--bad)"/>`;
     });
   }
-  if(!STATE.perfActive||!small){
-    AXES.forEach((a,i)=>{
-      const[x,y]=ptAt(i,snap.shown.theta[a.k]);
-      out+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(2+2.5*confidence(snap.shown.n[a.k])).toFixed(1)}" fill="var(--ink)"/>`;
-    });
-  }
-  if(!small){
-    out+=`<g font-size="9" font-family="ui-monospace,monospace">
-      <line x1="14" y1="560" x2="34" y2="560" stroke="var(--ink)" stroke-width="2"/><text x="39" y="563" fill="var(--muted)">shown</text>
-      <line x1="86" y1="560" x2="106" y2="560" stroke="var(--warn)" stroke-width="2" stroke-dasharray="6,4"/><text x="111" y="563" fill="var(--muted)">told</text>
-      <rect x="146" y="555" width="20" height="9" fill="var(--ink)" opacity=".12"/><text x="171" y="563" fill="var(--muted)">±conf</text>
-      ${Object.keys(STATE.steer).length?'<line x1="216" y1="560" x2="236" y2="560" stroke="var(--blue)" stroke-width="2"/><text x="241" y="563" fill="var(--muted)">steer</text>':''}
-      ${STATE.perfActive?'<line x1="286" y1="560" x2="306" y2="560" stroke="var(--bad)" stroke-width="2" stroke-dasharray="3,3"/><text x="311" y="563" fill="var(--muted)">performance</text>':''}
-    </g>`;
-  }
+  AXES.forEach((a,i)=>{
+    const[x,y]=ptAt(i,snap.shown.theta[a.k]);
+    out+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(2.5+3*confidence(snap.shown.n[a.k])).toFixed(1)}" fill="var(--ink)"/>`;
+  });
   svg.innerHTML=out;
   if(!small)svg.querySelectorAll('.axG').forEach(g=>g.addEventListener('click',()=>{if(!STATE.editMode)openEvidence(g.dataset.axis)}));
 }
@@ -571,9 +620,11 @@ function currentSnap(){
 }
 function show(view){
   STATE.view=view;
+  document.body.dataset.view=view;
   for(const v of ['ingest','figure','chat'])$('#'+v+'View').classList.toggle('hidden',v!==view);
   $('#backBtn').classList.toggle('hidden',view==='ingest');
   renderChrome();
+  if(view==='figure'&&STATE.fig)renderFigure();
 }
 function renderChrome(){
   const p=$('#primaryAction'),n=$('#actionNote');
@@ -584,13 +635,12 @@ function renderChrome(){
     $('#status').textContent=STATE.audit?`${STATE.audit.turnCount} turns · ${STATE.audit.targetWords} target words`:'paste a transcript';
   }else if(STATE.view==='figure'){
     p.textContent='CHAT';p.disabled=false;
-    n.textContent=STATE.editMode?'STEER is on — drag an axis on the radar to set the program the figure will perform':'the radar is the figure’s program — CHAT performs it';
+    n.textContent=STATE.editMode?'drag an axis on the radar to steer the program':'the radar is the figure’s program — CHAT performs it';
     $('#status').textContent=`${STATE.figureName} · ${STATE.fig.evidence.length} evidence events${Object.keys(STATE.steer).length?' · steered':''}`;
   }else{
-    p.textContent='EXIT';p.disabled=false;
     const sock=activeSocket();
-    n.textContent=sock?`${sock.model} carries the figure`:'no model — pick one above or ADD MODEL';
     $('#status').textContent=`${STATE.figureName} · encounter`;
+    $('#chatNote').textContent=sock?sock.model:'no model';
   }
 }
 
@@ -637,6 +687,8 @@ function renderFigure(){
     :'Told and shown channels agree — the figure speaks the way it says it is.';
   $('#scrubLabel').textContent=`turn ${STATE.scrubIdx}/${STATE.fig.snapshots.length-1}`;
   $('#gapsBtn').textContent=`MYTH GAP${gaps.length?' ('+gaps.length+')':''}`;
+  $('#legSteer').classList.toggle('hidden',!Object.keys(STATE.steer).length);
+  $('#legPerf').classList.toggle('hidden',!STATE.perfActive);
   renderChrome();
 }
 $('#scrubber').addEventListener('input',e=>{STATE.scrubIdx=Number(e.target.value)||0;renderFigure()});
@@ -644,15 +696,14 @@ $('#backBtn').addEventListener('click',()=>show(STATE.view==='chat'?'figure':'in
 $('#primaryAction').addEventListener('click',()=>{
   if(STATE.view==='ingest')compile();
   else if(STATE.view==='figure')enterChat();
-  else show('figure');
 });
 
 /* ---------- steering: drag axes on the radar ---------- */
 let dragging=false;
 function steerFromPointer(e){
   const svg=$('#radarSvg'),r=svg.getBoundingClientRect();
-  const scale=Math.min(r.width/720,r.height/600);
-  const ox=(r.width-720*scale)/2,oy=(r.height-600*scale)/2;
+  const scale=Math.min(r.width/720,r.height/552);
+  const ox=(r.width-720*scale)/2,oy=(r.height-552*scale)/2;
   const x=(e.clientX-r.left-ox)/scale,y=(e.clientY-r.top-oy)/scale;
   let a=Math.atan2(y-CY,x-CX)+Math.PI/2;
   while(a<0)a+=Math.PI*2;while(a>=Math.PI*2)a-=Math.PI*2;
@@ -672,8 +723,7 @@ addEventListener('pointerup',()=>dragging=false);
 $('#editBtn').addEventListener('click',()=>{
   STATE.editMode=!STATE.editMode;
   $('#editBtn').setAttribute('aria-pressed',String(STATE.editMode));
-  if(!STATE.editMode&&Object.keys(STATE.steer).length)$('#cardNote').textContent='steered program will be performed in CHAT';
-  if(STATE.editMode)$('#cardNote').textContent='drag an axis to steer · tap STEER again to finish';
+  $('#cardNote').textContent=STATE.editMode?'drag an axis to steer':(Object.keys(STATE.steer).length?'steered program will be performed':'');
   renderFigure();
 });
 
@@ -756,8 +806,8 @@ async function discoverLocal(){
 }
 function renderModels(){
   const sel=$('#chatModel');
-  if(!STATE.sockets.length){sel.innerHTML='<option value="">no model found — ADD MODEL</option>';renderChrome();return}
-  sel.innerHTML=STATE.sockets.map(x=>`<option value="${esc(x.id)}" ${x.id===STATE.activeSocketId?'selected':''}>${esc(x.model)} — ${esc(x.label)}${x.local?' · local':''}</option>`).join('');
+  if(!STATE.sockets.length){sel.innerHTML='<option value="">no model — ADD MODEL</option>';renderChrome();return}
+  sel.innerHTML=STATE.sockets.map(x=>`<option value="${esc(x.id)}" ${x.id===STATE.activeSocketId?'selected':''}>${esc(x.model)} · ${esc(x.label)}</option>`).join('');
   renderChrome();
 }
 $('#chatModel').addEventListener('change',e=>{STATE.activeSocketId=e.target.value;renderChrome()});
@@ -778,27 +828,35 @@ document.addEventListener('submit',e=>{
   renderModels();closeSheet();
 });
 
-/* ---------- encounter ---------- */
+/* ---------- encounter (1.6.3 script reader) ---------- */
 function enterChat(){
   compileSystem();
   show('chat');
+  document.body.dataset.printName=STATE.figureName.toUpperCase();
   discoverLocal();renderModels();
+  $('#stripName').textContent=STATE.figureName+' — encounter';
   renderRadarInto($('#sideRadar'),currentSnap(),{small:true});
   renderDrift();
-  if(!STATE.messages.length)
-    addTurn('system',`${STATE.figureName} is compiled and waiting. The figure performs the radar${Object.keys(STATE.steer).length?' as steered':''}; its replies are scored live against the program.`);
+  if(!$('#prose').querySelector('.programNote')){
+    const pn=document.createElement('div');pn.className='programNote';
+    pn.innerHTML=`<strong>${esc(STATE.figureName)}</strong> — a fictional performance compiled from a recorded conversation. The radar is the program${Object.keys(STATE.steer).length?', as steered':''}; every reply is scored against it. Generated speech is performance, not testimony.`;
+    $('#prose').prepend(pn);
+  }
   setTimeout(()=>$('#visitorText').focus(),0);
 }
 function addTurn(who,text){
   STATE.messages.push({who,text});
   const d=document.createElement('div');
-  d.className='turn '+who;
-  if(who!=='system'){
-    const l=document.createElement('span');l.className='turnLabel';
-    l.textContent=who==='visitor'?'YOU':STATE.figureName.toUpperCase();
-    d.appendChild(l);
+  if(who==='system'){
+    d.className='turn system';d.textContent=text;
+  }else{
+    d.className='turn '+who;
+    const blk=document.createElement('div');blk.className='sp-blk';
+    const cue=document.createElement('div');cue.className='sp-cue';
+    cue.textContent=who==='visitor'?'YOU':STATE.figureName.toUpperCase();
+    const dlg=document.createElement('div');dlg.className='sp-dlg';dlg.textContent=text;
+    blk.append(cue,dlg);d.appendChild(blk);
   }
-  d.appendChild(document.createTextNode(text));
   $('#prose').appendChild(d);
   $('#prose').scrollTop=$('#prose').scrollHeight;
   return d;
@@ -809,35 +867,51 @@ function scoreReply(text){
   updateChannel(STATE.perf,eventsToSums(evts));
   STATE.perfActive=true;
 }
-function renderDrift(){
-  renderRadarInto($('#sideRadar'),currentSnap(),{small:true});
-  const el=$('#driftNote');
-  if(!STATE.perfActive){el.innerHTML='The <b>red</b> polygon is the figure’s generated speech, scored by the same evidence engine. Watch whether the performance stays inside the program.';return}
+function driftFinding(){
+  if(!STATE.perfActive)return null;
   const eff=effectiveDims();
   let worst=null;
   for(const a of AXES){
     if(!STATE.perf.n[a.k])continue;
     const d=STATE.perf.theta[a.k]-eff[a.k];
-    if(!worst||Math.abs(d)>Math.abs(worst.d))worst={k:a.k,label:a.label,d};
+    if(!worst||Math.abs(d)>Math.abs(worst.d))worst={k:a.k,label:a.label,abbr:a.abbr,d};
   }
-  el.innerHTML=worst&&Math.abs(worst.d)>=.6
-    ?`Performance drifting <b>${worst.d>0?'+':''}${worst.d.toFixed(1)}</b> on ${worst.label.toLowerCase()} — the model is ${worst.d>0?'overplaying':'underplaying'} the program.`
-    :'Performance is holding the program so far.';
+  return worst;
+}
+function renderDrift(){
+  renderRadarInto($('#sideRadar'),currentSnap(),{small:true});
+  const worst=driftFinding();
+  const noteEl=$('#driftNote'),chip=$('#driftChip');
+  if(!STATE.perfActive){
+    noteEl.innerHTML='The <b>red</b> polygon is the figure’s generated speech, scored by the same evidence engine.';
+    chip.textContent='';
+    return;
+  }
+  if(worst&&Math.abs(worst.d)>=.6){
+    noteEl.innerHTML=`Performance drifting <b>${worst.d>0?'+':''}${worst.d.toFixed(1)}</b> on ${worst.label.toLowerCase()} — the model is ${worst.d>0?'overplaying':'underplaying'} the program.`;
+    chip.innerHTML=`drift <b>${worst.d>0?'+':''}${worst.d.toFixed(1)} ${worst.abbr}</b>`;
+  }else{
+    noteEl.textContent='Performance is holding the program so far.';
+    chip.textContent='holding program';
+  }
 }
 $('#radarPeekBtn').addEventListener('click',()=>{
-  openSheet('PROGRAM vs PERFORMANCE',`<svg id="sheetRadar" viewBox="0 0 720 600" style="width:100%;height:auto"></svg><div class="notice" id="sheetDrift"></div>`);
+  openSheet('PROGRAM vs PERFORMANCE',`<svg id="sheetRadar" viewBox="0 0 720 552" style="width:100%;height:auto"></svg><div class="notice" id="sheetDrift"></div>`);
   renderRadarInto($('#sheetRadar'),currentSnap(),{small:true});
   $('#sheetDrift').innerHTML=$('#driftNote').innerHTML;
 });
+$('#printBtn').addEventListener('click',()=>window.print());
 $('#composer').addEventListener('submit',async e=>{
   e.preventDefault();
   const ta=$('#visitorText'),text=ta.value.trim();
   if(!text||STATE.chatBusy)return;
   const sock=activeSocket();
-  if(!sock){addTurn('system','No model connected. Start a local server (LM Studio, Ollama, llama.cpp) or ADD MODEL above.');return}
+  if(!sock){addTurn('system','No model connected. Start a local server (LM Studio, Ollama, llama.cpp) or ADD MODEL below.');return}
   ta.value='';
   addTurn('visitor',text);
-  STATE.chatBusy=true;$('#chatNote').textContent='the figure is speaking…';
+  STATE.chatBusy=true;
+  const pending=document.createElement('div');pending.className='replyPending';pending.textContent='…';
+  $('#prose').appendChild(pending);$('#prose').scrollTop=$('#prose').scrollHeight;
   const history=STATE.messages.filter(m=>m.who!=='system').map(m=>({role:m.who==='visitor'?'user':'assistant',content:m.text}));
   try{
     const res=await fetch(sock.base+'/chat/completions',{method:'POST',
@@ -847,13 +921,15 @@ $('#composer').addEventListener('submit',async e=>{
     if(!res.ok)throw Error('HTTP '+res.status+': '+(await res.text()).slice(0,160));
     const j=await res.json();
     const reply=(j.choices?.[0]?.message?.content||'').trim()||'(no reply)';
+    pending.remove();
     addTurn('figure',reply);
     scoreReply(reply);
     renderDrift();
   }catch(err){
+    pending.remove();
     addTurn('system','Model error: '+err.message);
   }finally{
-    STATE.chatBusy=false;$('#chatNote').textContent='';renderChrome();
+    STATE.chatBusy=false;renderChrome();
   }
 });
 $('#visitorText').addEventListener('keydown',e=>{
@@ -895,7 +971,7 @@ $('#theoryBtn').addEventListener('click',()=>openSheet('THEORY',`
   <p><b>The figure is a latent program.</b> The transcript is a sparse sample of a generative process; the Centaur Box's eleven-axis vector θ is its parameters. The radar is the posterior over θ given the record.</p>
   <p><b>Inference.</b> Prior: every axis at 3, confidence 0. Each turn yields observation v = 3 + 1.5·tanh(Σ±w); update θ ← θ + (v−θ)/(n+2); confidence n/(n+4) sets the band. Silence stays at the prior — never filled with invented biography. Every score is traceable: tap an axis for its evidence.</p>
   <p><b>Two channels.</b> TOLD scores first-person claims; SHOWN scores manner (hedges, connectives, imperatives). Their divergence is the myth gap (Barthes) — the self-mythology measured against the tape.</p>
-  <p><b>The encounter closes the loop.</b> CHAT compiles the radar into a performance contract and a model performs it. Every generated reply is scored by the same engine (red polygon): the instrument measures live whether the performance carries the program. STEER lets you drag the program and hear the difference.</p>
+  <p><b>The encounter closes the loop.</b> CHAT compiles the radar into a performance contract and a model performs it. Every generated reply is scored by the same engine (red polygon): the instrument measures live whether the performance carries the program. STEER lets you drag the program and hear the difference. PRINT emits the encounter as a clean monochrome script (1.6.3 print-clean).</p>
   <p><b>Centaur Box.</b> EXPORT hands θ to index.html (Observer panel → IMPORT FIGURE) as an agent's self-model; the Box's Observer re-runs this same inference from conversation alone.</p>
   <h3 style="margin-top:16px">Current contract</h3>
   <pre>${esc(STATE.system||'(compile a figure first)')}</pre>`));
