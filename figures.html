@@ -40,7 +40,28 @@ header{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;a
 #actionBar{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid var(--line);min-width:0}
 #actionNote{font-size:10px;color:var(--muted);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #primaryAction{margin-left:auto;white-space:nowrap}
-body[data-view="chat"] #actionBar{display:none!important}
+body[data-view="chat"] #actionBar,body[data-view="models"] #actionBar{display:none!important}
+/* ---- 1.6.3 ONE DOOR: connect a model ---- */
+.startPanel{width:min(540px,92vw)}
+.startEyebrow{font-size:9px;letter-spacing:.16em;color:var(--muted);margin-bottom:8px}
+.startPanel h1{font:700 clamp(28px,5vw,40px)/1 ui-serif,Georgia,serif;margin:0 0 10px}
+.startPanel .lede{font:14px/1.45 ui-serif,Georgia,serif;color:var(--muted);max-width:460px;margin-bottom:22px}
+.startModelForm{display:grid;grid-template-columns:1fr;gap:10px}
+.startModelForm>select,.startModelForm>input{width:100%;min-height:52px;border:1px solid var(--line);background:transparent;padding:12px 14px;font-size:15px}
+.startButton{width:100%;min-height:54px;font-size:15px;letter-spacing:.05em}
+.rememberLine{display:flex;gap:8px;align-items:center;font-size:9px;letter-spacing:.09em;color:var(--muted)}
+.rememberLine input{width:14px;height:14px}
+.otherModels{margin-top:6px;border-top:1px solid var(--line);padding-top:10px;color:var(--muted)}
+.otherModels summary{cursor:pointer;font-size:10px;letter-spacing:.08em}
+.otherModelGrid{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
+.otherModelGrid select{width:100%;border:1px solid var(--line);background:transparent;padding:9px}
+.otherModelGrid button{border:1px solid var(--line);background:transparent;padding:9px 12px}
+.otherModelGrid #customBaseWrap{grid-column:1/-1;display:none}
+.otherModelGrid #customBaseWrap input{width:100%;border:1px solid var(--line);background:transparent;padding:9px}
+.localHint{font-size:9px;line-height:1.5;margin-top:8px}
+#hostedStatus{font-size:10px;line-height:1.5;margin-top:10px;min-height:15px}
+#hostedStatus.good{color:var(--good)}
+#hostedStatus.bad{color:var(--bad)}
 /* ---- ingest ---- */
 .ingestBox{width:min(720px,94vw);display:grid;gap:8px}
 .ingestBox h1{font:700 clamp(24px,5vw,32px)/1.05 ui-serif,Georgia,serif;margin:0}
@@ -238,12 +259,38 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
       <div class="cardBtns">
         <button id="editBtn" class="quiet" type="button" aria-pressed="false">STEER</button>
         <button id="gapsBtn" class="quiet" type="button">MYTH GAP</button>
-        <button id="holdBtn" class="quiet" type="button">HOLD A</button>
-        <button id="copyBeliefBtn" class="quiet" type="button">COPY</button>
         <button id="exportBtn" class="quiet" type="button">EXPORT</button>
         <span id="cardNote"></span>
       </div>
     </article>
+  </section>
+
+  <section id="modelsView" class="view hidden">
+    <div class="startPanel">
+      <div class="startEyebrow">ONE-TIME SETUP</div>
+      <h1>Connect a model</h1>
+      <div class="lede">One model carries the figure. Choose it here once; everything else stays backstage. The key stays in this browser and is never written into exports.</div>
+      <form id="hostedForm" class="startModelForm">
+        <select id="hostedModel" aria-label="Model"><option value="">loading models…</option></select>
+        <input id="hostedKey" type="password" autocomplete="off" placeholder="OpenAI API key">
+        <button id="addHostedBtn" class="primary startButton" type="submit">ENTER</button>
+        <label class="rememberLine"><input id="hostedRemember" type="checkbox"><span>REMEMBER KEY ON THIS DEVICE</span></label>
+        <details class="otherModels">
+          <summary>Other models</summary>
+          <div class="otherModelGrid">
+            <select id="hostedProvider" aria-label="Provider">
+              <option value="openai">OpenAI</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="custom">Custom</option>
+            </select>
+            <button id="loadModelsBtn" type="button">LOAD</button>
+            <div id="customBaseWrap"><input id="customBase" placeholder="https://host/v1"></div>
+          </div>
+          <div class="localHint">Local LM Studio, Ollama, and llama.cpp are discovered automatically and appear in the model list above. They need no key.</div>
+        </details>
+      </form>
+      <div id="hostedStatus" aria-live="polite"></div>
+    </div>
   </section>
 
   <section id="chatView" class="view hidden">
@@ -262,8 +309,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
         <textarea id="visitorText" aria-label="What do you say?" placeholder="What do you say?"></textarea>
         <button class="sendBtn" type="submit">SEND</button>
         <div class="composerTools">
-          <select id="chatModel" aria-label="Model"><option value="">finding models…</option></select>
-          <button id="addModelBtn" type="button">ADD MODEL</button>
+          <button id="modelBtn" type="button" title="Change model">MODEL</button>
           <button id="feedbackBtn" type="button" aria-pressed="true" title="Feed the judge's verdict back into the generator's next turn">FEEDBACK ON</button>
           <button id="radarPeekBtn" type="button">RADAR</button>
           <button id="printBtn" type="button">PRINT</button>
@@ -682,7 +728,7 @@ function currentSnap(){
 function show(view){
   STATE.view=view;
   document.body.dataset.view=view;
-  for(const v of ['ingest','figure','chat'])$('#'+v+'View').classList.toggle('hidden',v!==view);
+  for(const v of ['ingest','figure','chat','models'])$('#'+v+'View').classList.toggle('hidden',v!==view);
   $('#backBtn').classList.toggle('hidden',view==='ingest');
   renderChrome();
   if(view==='figure'&&STATE.fig)renderFigure();
@@ -698,6 +744,8 @@ function renderChrome(){
     p.textContent='CHAT';p.disabled=false;
     n.textContent=STATE.editMode?'drag an axis on the radar to steer the program':'the radar is the figure’s program — CHAT performs it';
     $('#status').textContent=`${STATE.figureName} · ${STATE.fig.evidence.length} evidence events${Object.keys(STATE.steer).length?' · steered':''}`;
+  }else if(STATE.view==='models'){
+    $('#status').textContent='connect a model';
   }else{
     const sock=activeSocket();
     $('#status').textContent=`${STATE.figureName} · encounter`;
@@ -754,10 +802,13 @@ function renderFigure(){
   renderChrome();
 }
 $('#scrubber').addEventListener('input',e=>{STATE.scrubIdx=Number(e.target.value)||0;renderFigure()});
-$('#backBtn').addEventListener('click',()=>show(STATE.view==='chat'?'figure':'ingest'));
+$('#backBtn').addEventListener('click',()=>{
+  if(STATE.view==='chat'||STATE.view==='models')show(STATE.fig?'figure':'ingest');
+  else show('ingest');
+});
 $('#primaryAction').addEventListener('click',()=>{
   if(STATE.view==='ingest')compile();
-  else if(STATE.view==='figure')enterChat();
+  else if(STATE.view==='figure'){activeSocket()?enterChat():openModels()}
 });
 
 /* ---------- steering: drag axes on the radar ---------- */
@@ -838,57 +889,211 @@ TRANSCRIPT EVIDENCE
 ${evidence}`;
 }
 
-/* ---------- models (FIGURE CORPS discovery) ---------- */
-const LOCAL_PROVIDERS=[
- {label:'LM Studio',base:'http://localhost:1234/v1'},
- {label:'Ollama',base:'http://localhost:11434/v1'},
- {label:'llama.cpp',base:'http://localhost:8080/v1'}
-];
+/* ---------- models: FIGURE CORPS 1.6.3 provider layer, verbatim semantics ---------- */
+const arr=v=>Array.isArray(v)?v:v==null?[]:[v];
+const PROVIDERS={
+  lmstudio:{label:'LM Studio',base:'http://localhost:1234/v1',local:true},
+  ollama:{label:'Ollama',base:'http://localhost:11434/v1',local:true},
+  llamacpp:{label:'llama.cpp',base:'http://localhost:8080/v1',local:true},
+  openrouter:{label:'OpenRouter',base:'https://openrouter.ai/api/v1',key:true},
+  openai:{label:'OpenAI',base:'https://api.openai.com/v1',key:true},
+  custom:{label:'Custom',base:'',key:true}
+};
+const OPENAI_BUILTIN_MODELS=['gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna'];
+function chatModelFilter(provider,ids){
+  if(provider==='openai')return ids.filter(id=>/^(gpt-|o[1-9]|chatgpt)/.test(id)&&!/(embed|whisper|tts|audio|realtime|image|dall|moderation|transcribe|search|instruct-0914)/i.test(id));
+  return ids;
+}
 function activeSocket(){return STATE.sockets.find(x=>x.id===STATE.activeSocketId)||null}
 function addSocket(s){
-  const id=s.base+'|'+s.model;
-  if(!STATE.sockets.some(x=>x.id===id))STATE.sockets.push({id,...s});
-  return id;
+  const id=(s.provider||'x')+'|'+s.base+'|'+s.model;
+  const existing=STATE.sockets.find(x=>x.id===id);
+  if(existing){existing.key=s.key||existing.key;return existing}
+  const sock={id,...s};STATE.sockets.push(sock);return sock;
 }
 async function discoverLocal(){
   if(STATE.discovering)return;STATE.discovering=true;
-  await Promise.all(LOCAL_PROVIDERS.map(async p=>{
+  await Promise.all(['lmstudio','ollama','llamacpp'].map(async p=>{
+    const cfg=PROVIDERS[p];
     try{
-      const r=await fetch(p.base+'/models',{signal:AbortSignal.timeout?AbortSignal.timeout(1800):undefined});
+      const controller=new AbortController();const t=setTimeout(()=>controller.abort(),1800);
+      const r=await fetch(cfg.base+'/models',{signal:controller.signal});
+      clearTimeout(t);
       if(!r.ok)return;
       const d=await r.json();
-      (Array.isArray(d.data)?d.data:[]).slice(0,20).forEach(m=>{
-        const id=m.id||m.name;if(id)addSocket({label:p.label,base:p.base,model:id,key:'',local:true});
-      });
+      arr(d.data).map(x=>x.id||x.name).filter(Boolean).slice(0,20)
+        .forEach(m=>addSocket({provider:p,label:cfg.label,base:cfg.base,model:m,key:'',local:true}));
     }catch(e){}
   }));
   STATE.discovering=false;
-  if(!STATE.activeSocketId&&STATE.sockets.length)STATE.activeSocketId=STATE.sockets[0].id;
-  renderModels();
-}
-function renderModels(){
-  const sel=$('#chatModel');
-  if(!STATE.sockets.length){sel.innerHTML='<option value="">no model — ADD MODEL</option>';renderChrome();return}
-  sel.innerHTML=STATE.sockets.map(x=>`<option value="${esc(x.id)}" ${x.id===STATE.activeSocketId?'selected':''}>${esc(x.model)} · ${esc(x.label)}</option>`).join('');
+  if(!STATE.activeSocketId){const first=STATE.sockets.find(x=>x.local);if(first)STATE.activeSocketId=first.id}
+  if(STATE.view==='models')renderModelSelect(STATE.catalog||[],'');
   renderChrome();
 }
-$('#chatModel').addEventListener('change',e=>{STATE.activeSocketId=e.target.value;renderChrome()});
-$('#addModelBtn').addEventListener('click',()=>openSheet('ADD MODEL',`
-  <p style="font-size:12px">Any OpenAI-compatible endpoint. The key stays in this page.</p>
-  <form class="sheetForm" id="hostedForm">
-    <input id="hostedBase" placeholder="base URL e.g. https://openrouter.ai/api/v1" autocomplete="off">
-    <input id="hostedKey" type="password" placeholder="API key (blank for local)" autocomplete="off">
-    <input id="hostedModel" placeholder="model ID" autocomplete="off">
-    <button type="submit">ADD & USE</button>
-  </form>`));
-document.addEventListener('submit',e=>{
-  if(e.target.id!=='hostedForm')return;
+/* adaptive parameter caps: learn from the API, never from model-name guesses */
+const MODEL_CAPS=new Map();
+function modelCaps(sock){const k=sock.provider+':'+sock.model;if(!MODEL_CAPS.has(k))MODEL_CAPS.set(k,{});return MODEL_CAPS.get(k)}
+function apiErrorInfo(detail){
+  const text=String(detail||'');let json=null;try{json=JSON.parse(text)}catch(e){}
+  const err=json?.error||json||{};
+  return{message:String(err.message||text||''),param:String(err.param||''),code:String(err.code||'')};
+}
+function isUnsupportedParam(detail,name){
+  const e=apiErrorInfo(detail),n=String(name||'').toLowerCase();
+  return e.param.toLowerCase()===n||(e.message.toLowerCase().includes('unsupported parameter')&&e.message.toLowerCase().includes(n));
+}
+async function fetchTimed(url,options={},ms=45000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),ms);
+  try{return await fetch(url,{...options,signal:controller.signal})}
+  catch(e){if(e?.name==='AbortError')throw Error('Model call timed out.');throw e}
+  finally{clearTimeout(timer)}
+}
+function headersFor(sock){return{'Content-Type':'application/json',...(sock.key?{Authorization:'Bearer '+sock.key}:{})}}
+function chatEndpoint(base){return base.replace(/\/$/,'')+'/chat/completions'}
+function openAIOutputText(d){
+  if(typeof d?.output_text==='string'&&d.output_text.trim())return d.output_text.trim();
+  const parts=[];for(const item of arr(d?.output))for(const c of arr(item?.content))if(c?.type==='output_text'&&c.text)parts.push(c.text);
+  return parts.join('\n').trim();
+}
+async function openAIResponses(sock,body){
+  const endpoint=sock.base.replace(/\/$/,'')+'/responses';
+  const send=()=>fetchTimed(endpoint,{method:'POST',headers:headersFor(sock),body:JSON.stringify(body)});
+  let r=await send();
+  if(r.ok)return r;
+  let detail=await r.text().catch(()=> '');
+  if(r.status===400&&Object.prototype.hasOwnProperty.call(body,'temperature')&&isUnsupportedParam(detail,'temperature')){
+    modelCaps(sock).temperature=false;delete body.temperature;
+    r=await send();
+    if(r.ok)return r;
+    detail=await r.text().catch(()=> '');
+  }
+  throw Error(`${sock.label} ${r.status}${detail?' · '+detail.slice(0,360):''}`);
+}
+async function callSocket(sock,messages,{temperature=.25}={}){
+  if(sock.provider==='openai'){
+    const instructions=messages.filter(m=>m.role==='system'||m.role==='developer').map(m=>String(m.content||'')).join('\n\n');
+    const input=messages.filter(m=>m.role!=='system'&&m.role!=='developer').map(m=>({role:m.role==='assistant'?'assistant':'user',content:String(m.content||'')}));
+    const body={model:sock.model,input};if(instructions)body.instructions=instructions;
+    const caps=modelCaps(sock);if(Number.isFinite(temperature)&&caps.temperature!==false)body.temperature=temperature;
+    const r=await openAIResponses(sock,body);
+    const d=await r.json(),out=openAIOutputText(d);if(!out)throw Error(`${sock.label} returned no output text`);return out;
+  }
+  let body={model:sock.model,messages};const caps=modelCaps(sock);
+  if(Number.isFinite(temperature)&&caps.temperature!==false)body.temperature=temperature;
+  const endpoint=chatEndpoint(sock.base),send=()=>fetchTimed(endpoint,{method:'POST',headers:headersFor(sock),body:JSON.stringify(body)});
+  let r=await send();let detail='';
+  if(!r.ok){detail=await r.text().catch(()=> '');if(r.status===400&&Object.prototype.hasOwnProperty.call(body,'temperature')&&isUnsupportedParam(detail,'temperature')){caps.temperature=false;delete body.temperature;r=await send();if(!r.ok)detail=await r.text().catch(()=> '')}}
+  if(!r.ok)throw Error(`${sock.label} ${r.status}${detail?' · '+detail.slice(0,360):''}`);
+  const d=await r.json(),out=d?.choices?.[0]?.message?.content;
+  if(!out)throw Error(`${sock.label} returned no assistant text`);
+  return typeof out==='string'?out:arr(out).map(x=>x?.text||'').join('\n').trim();
+}
+/* ---- one-door setup UI ---- */
+function hostedStatus(msg,cls=''){const el=$('#hostedStatus');el.textContent=msg;el.className=cls}
+function configureHostedProviderUI(){
+  const provider=$('#hostedProvider').value;
+  $('#customBaseWrap').style.display=provider==='custom'?'block':'none';
+  $('#loadModelsBtn').style.display=provider==='openai'?'none':'';
+  $('#hostedKey').placeholder=provider==='openai'?'paste OpenAI API key':provider==='openrouter'?'paste OpenRouter API key':'paste API key (blank if none)';
+}
+function renderModelSelect(catalogIds,placeholder){
+  STATE.catalog=catalogIds;
+  const sel=$('#hostedModel'),provider=$('#hostedProvider').value,prev=sel.value;
+  const locals=STATE.sockets.filter(x=>x.local);
+  let html='';
+  if(locals.length)html+=`<optgroup label="LOCAL — no key needed">${locals.map(x=>`<option value="local|${esc(x.id)}">${esc(x.model)} · ${esc(x.label)}</option>`).join('')}</optgroup>`;
+  if(catalogIds.length)html+=`<optgroup label="${esc(PROVIDERS[provider].label)}">${catalogIds.map(id=>`<option value="${esc(id)}">${esc(id)}</option>`).join('')}</optgroup>`;
+  if(!html)html=`<option value="">${esc(placeholder||'no models yet')}</option>`;
+  sel.innerHTML=html;
+  if(prev&&[...sel.options].some(o=>o.value===prev))sel.value=prev;
+}
+let hostedLoadSeq=0;
+async function loadHostedModels(){
+  const provider=$('#hostedProvider').value,cfg=PROVIDERS[provider];
+  const keyValue=$('#hostedKey').value.trim();
+  const base=(provider==='custom'?$('#customBase').value.trim():cfg.base).replace(/\/$/,'');
+  configureHostedProviderUI();
+  // OpenAI model selection must never depend on /v1/models: the catalog probe can
+  // fail independently of the encounter (browser/CORS policy). Keep the current
+  // GPT-5.6 family and validate access on the first real Responses call.
+  if(provider==='openai'){
+    renderModelSelect(OPENAI_BUILTIN_MODELS);
+    hostedStatus(keyValue?'Ready. Press ENTER.':'Paste your OpenAI API key, then press ENTER — or pick a LOCAL model above.',keyValue?'good':'');
+    return;
+  }
+  if(provider==='custom'&&!base){renderModelSelect([],'enter the base URL first');hostedStatus('Custom provider needs a base URL like https://host/v1');return}
+  if(cfg.key&&!keyValue&&provider!=='custom'){renderModelSelect([],'paste a key first');hostedStatus('');return}
+  const seq=++hostedLoadSeq;
+  renderModelSelect([],'loading…');hostedStatus(`Asking ${cfg.label} for its model list…`);
+  try{
+    const r=await fetch(base+'/models',{headers:keyValue?{Authorization:'Bearer '+keyValue}:{}});
+    if(seq!==hostedLoadSeq)return;
+    if(r.status===401||r.status===403){renderModelSelect([],'key rejected');hostedStatus(`${cfg.label} rejected the key (HTTP ${r.status}).`,'bad');return}
+    if(!r.ok){renderModelSelect([],'provider error');hostedStatus(`${cfg.label} answered HTTP ${r.status}.`,'bad');return}
+    const d=await r.json();
+    let ids=arr(d.data).map(x=>x.id||x.name).filter(Boolean);
+    const all=ids.length;
+    ids=chatModelFilter(provider,ids).sort((a,b)=>b.localeCompare(a)).slice(0,300);
+    if(!ids.length){renderModelSelect([],'no chat models');hostedStatus(`${cfg.label} returned ${all} models, none chat-capable.`,'bad');return}
+    renderModelSelect(ids);
+    hostedStatus(`${ids.length} chat models loaded — pick one and press ENTER.`,'good');
+  }catch(e){
+    if(seq!==hostedLoadSeq)return;
+    renderModelSelect([],'unreachable');
+    hostedStatus(`${cfg.label} model discovery is unreachable from this browser.${provider==='custom'?' The custom server must send CORS headers.':''}`,'bad');
+  }
+}
+function saveHosted(){
+  if(!$('#hostedRemember').checked)return;
+  try{localStorage.setItem('centaur-figures-hosted',JSON.stringify({provider:$('#hostedProvider').value,key:$('#hostedKey').value,base:$('#customBase').value,model:$('#hostedModel').value,remember:true}))}catch(e){}
+}
+function restoreHosted(){
+  let raw=null;try{raw=localStorage.getItem('centaur-figures-hosted')}catch(e){}
+  if(!raw)return;
+  try{
+    const d=JSON.parse(raw);if(!d.remember||!d.key)return;
+    $('#hostedProvider').value=d.provider||'openai';$('#hostedKey').value=d.key||'';$('#customBase').value=d.base||'';$('#hostedRemember').checked=true;
+    const model=d.model&&!String(d.model).startsWith('local|')?d.model:'';
+    if(!model)return;
+    const cfg=PROVIDERS[d.provider||'openai'];
+    const base=((d.provider==='custom'?d.base:cfg.base)||'').replace(/\/$/,'');
+    if(!base)return;
+    const sock=addSocket({provider:d.provider||'openai',label:cfg.label,base,model,key:d.key,local:false});
+    STATE.activeSocketId=sock.id;
+  }catch(e){}
+}
+function openModels(){
+  show('models');
+  configureHostedProviderUI();
+  discoverLocal();
+  loadHostedModels();
+}
+$('#hostedProvider').addEventListener('change',()=>{configureHostedProviderUI();loadHostedModels()});
+$('#loadModelsBtn').addEventListener('click',loadHostedModels);
+let keyTimer=null;
+$('#hostedKey').addEventListener('input',()=>{clearTimeout(keyTimer);keyTimer=setTimeout(loadHostedModels,$('#hostedProvider').value==='openai'?0:450)});
+$('#hostedForm').addEventListener('submit',e=>{
   e.preventDefault();
-  const base=$('#hostedBase').value.trim().replace(/\/+$/,''),key=$('#hostedKey').value.trim(),model=$('#hostedModel').value.trim();
-  if(!base||!model)return;
-  STATE.activeSocketId=addSocket({label:'hosted',base,model,key,local:false});
-  renderModels();closeSheet();
+  const sel=$('#hostedModel').value;
+  if(!sel){hostedStatus('Pick a model first.','bad');return}
+  if(sel.startsWith('local|')){
+    const sock=STATE.sockets.find(x=>x.id===sel.slice(6));
+    if(!sock){hostedStatus('That local model is gone — reload.','bad');return}
+    STATE.activeSocketId=sock.id;
+  }else{
+    const provider=$('#hostedProvider').value,cfg=PROVIDERS[provider];
+    const keyValue=$('#hostedKey').value.trim();
+    const base=(provider==='custom'?$('#customBase').value.trim():cfg.base).replace(/\/$/,'');
+    if(!base){hostedStatus('Base URL required.','bad');return}
+    if(cfg.key&&!keyValue&&provider!=='custom'){hostedStatus('This provider needs an API key.','bad');return}
+    const sock=addSocket({provider,label:cfg.label,base,model:sel,key:keyValue,local:false});
+    STATE.activeSocketId=sock.id;
+    saveHosted();
+  }
+  enterChat();
 });
+$('#modelBtn').addEventListener('click',openModels);
 
 /* ---------- character portrait: the figure's face, driven by the judge ---------- */
 function buildPortrait(el){
@@ -927,7 +1132,7 @@ function enterChat(){
   compileSystem();
   show('chat');
   document.body.dataset.printName=STATE.figureName.toUpperCase();
-  discoverLocal();renderModels();
+  discoverLocal();
   $('#stripName').textContent=STATE.figureName;
   buildPortrait($('#portraitA'));buildPortrait($('#portraitB'));
   setMood(STATE.mood,false);
@@ -1050,7 +1255,7 @@ $('#composer').addEventListener('submit',async e=>{
   const ta=$('#visitorText'),text=ta.value.trim();
   if(!text||STATE.chatBusy)return;
   const sock=activeSocket();
-  if(!sock){addTurn('system','No model connected. Start a local server (LM Studio, Ollama, llama.cpp) or ADD MODEL below.');return}
+  if(!sock){openModels();return}
   ta.value='';
   addTurn('visitor',text);
   STATE.chatBusy=true;
@@ -1062,12 +1267,7 @@ $('#composer').addEventListener('submit',async e=>{
   const messages=[{role:'system',content:STATE.system},...history];
   if(feedback)messages.push({role:'system',content:feedback});
   try{
-    const res=await fetch(sock.base+'/chat/completions',{method:'POST',
-      headers:{'Content-Type':'application/json',...(sock.key?{Authorization:'Bearer '+sock.key}:{})},
-      body:JSON.stringify({model:sock.model,temperature:.8,max_tokens:320,messages})});
-    if(!res.ok)throw Error('HTTP '+res.status+': '+(await res.text()).slice(0,160));
-    const j=await res.json();
-    const reply=(j.choices?.[0]?.message?.content||'').trim()||'(no reply)';
+    const reply=(await callSocket(sock,messages,{temperature:.78})).trim()||'(no reply)';
     pending.remove();
     addTurn('figure',reply);
     const entry=judgeReply(reply);
@@ -1129,21 +1329,29 @@ $('#theoryBtn').addEventListener('click',()=>openSheet('THEORY',`
   <p><b>Two channels.</b> TOLD scores first-person claims; SHOWN scores manner (hedges, connectives, imperatives). Their divergence is the myth gap (Barthes) — the self-mythology measured against the tape.</p>
   <p><b>The encounter is a dual context window.</b> The <b>generator</b> (actuator) performs the contract; the <b>judge</b> (sensor) reads every generated reply with the same evidence engine that read the archive, and updates the running model of the person — the per-axis movement is printed under each reply (tap it for the evidence). With FEEDBACK on, the judge's verdict is compiled into a corrective system message for the generator's next turn: sensor → controller → actuator, closed loop. STEER sets the reference signal; drift is the error term. PRINT emits the encounter as a clean monochrome script (1.6.3 print-clean).</p>
   <p><b>Centaur Box.</b> EXPORT hands θ to index.html (Observer panel → IMPORT FIGURE) as an agent's self-model; the Box's Observer re-runs this same inference from conversation alone.</p>
+  <h3 style="margin-top:16px">Backstage</h3>
+  <div class="rowBtns" style="display:flex;gap:8px;flex-wrap:wrap">
+    <button id="holdBtn" class="quiet" type="button" style="border:1px solid var(--line)">HOLD AS FIGURE A</button>
+    <button id="copyBeliefBtn" class="quiet" type="button" style="border:1px solid var(--line)">COPY CENTAUR BELIEF</button>
+  </div>
   <h3 style="margin-top:16px">Current contract</h3>
   <pre>${esc(STATE.system||'(compile a figure first)')}</pre>`));
 
-/* ---------- hold / copy / export ---------- */
-$('#holdBtn').addEventListener('click',()=>{
-  if(!STATE.fig)return;
-  STATE.figureA={name:STATE.figureName,shown:{...STATE.fig.shown.theta}};
-  $('#cardNote').textContent=`"${STATE.figureName}" held — ingest another to compare`;
-  renderFigure();
-});
-$('#copyBeliefBtn').addEventListener('click',async()=>{
-  if(!STATE.fig)return;
-  const belief=effectiveDims();
-  try{await navigator.clipboard.writeText(JSON.stringify(belief,null,2));$('#cardNote').textContent='Centaur Belief copied'}
-  catch(e){$('#cardNote').textContent=JSON.stringify(belief)}
+/* ---------- hold / copy (backstage, delegated: they live in the THEORY sheet) ---------- */
+document.addEventListener('click',async e=>{
+  const id=e.target&&e.target.id;
+  if(id==='holdBtn'){
+    if(!STATE.fig)return;
+    STATE.figureA={name:STATE.figureName,shown:{...STATE.fig.shown.theta}};
+    $('#cardNote').textContent=`"${STATE.figureName}" held — ingest another to compare`;
+    closeSheet();
+  }else if(id==='copyBeliefBtn'){
+    if(!STATE.fig)return;
+    const belief=effectiveDims();
+    try{await navigator.clipboard.writeText(JSON.stringify(belief,null,2));$('#cardNote').textContent='Centaur Belief copied'}
+    catch(err){$('#cardNote').textContent=JSON.stringify(belief)}
+    closeSheet();
+  }
 });
 $('#exportBtn').addEventListener('click',()=>{
   if(!STATE.fig)return;
@@ -1223,6 +1431,7 @@ HR: Listen — let me tell you something. I made my own life. Maybe I lost some 
   STATE.targetOverride='HR';STATE.source='sample transcript';
   runAudit();
 });
+restoreHosted();
 show('ingest');
 })();
 </script>
