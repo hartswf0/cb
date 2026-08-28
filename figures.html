@@ -106,31 +106,9 @@ body[data-view="chat"] #actionBar,body[data-view="models"] #actionBar{display:no
 #driftChip{font-size:10px;color:var(--muted);white-space:nowrap;max-width:26vw;overflow:hidden;text-overflow:ellipsis}
 #driftChip b{color:var(--bad)}
 @media(min-width:920px){#chatStrip{display:none}}
-/* ---- character portrait (animated) ---- */
-.portrait{width:52px;height:52px;flex:none}
-.portrait .head{fill:var(--soft);stroke:var(--ink);stroke-width:2.4}
-.portrait .brow{stroke:var(--ink);stroke-width:2.6;stroke-linecap:round}
-.portrait .eye{fill:var(--ink)}
-.portrait .mouthP{stroke:var(--ink);stroke-width:2.6;fill:none;stroke-linecap:round}
-.portrait .browL,.portrait .browR,.portrait .mouth,.portrait .eyeL,.portrait .eyeR{transform-box:fill-box;transform-origin:center;transition:transform .55s ease}
-.portrait .eyeL,.portrait .eyeR{animation:blink 4.6s infinite}
-.portrait .eyeR{animation-delay:.12s}
-@keyframes blink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
-.portrait[data-mood=warm] .mouth{transform:scaleY(1.25)}
-.portrait[data-mood=warm] .browL,.portrait[data-mood=warm] .browR{transform:translateY(-2px)}
-.portrait[data-mood=firm] .mouth{transform:scaleY(.12)}
-.portrait[data-mood=firm] .browL{transform:rotate(9deg) translateY(1px)}
-.portrait[data-mood=firm] .browR{transform:rotate(-9deg) translateY(1px)}
-.portrait[data-mood=wary] .browL{transform:rotate(-13deg) translateY(-2px)}
-.portrait[data-mood=wary] .browR{transform:rotate(13deg) translateY(-2px)}
-.portrait[data-mood=wary] .mouth{transform:scaleY(.3) translateY(2px)}
-.portrait[data-mood=wondering] .browL,.portrait[data-mood=wondering] .browR{transform:translateY(-3.5px)}
-.portrait[data-mood=wondering] .mouth{transform:scale(.55,.8)}
-.portrait[data-mood=wavering] .browL{transform:translateY(-2.5px) rotate(-6deg)}
-.portrait[data-mood=wavering] .browR{transform:translateY(1.5px) rotate(-4deg)}
-.portrait[data-mood=wavering] .mouth{transform:rotate(-5deg) scaleY(.45)}
-.portrait.speaking .mouth{animation:talk .32s infinite alternate ease-in-out}
-@keyframes talk{from{transform:scaleY(.35)}to{transform:scaleY(1.15)}}
+/* ---- character portrait: canvas close-up puppet (odyssey-halfworld idiom) ---- */
+.portrait{width:56px;height:56px;flex:none;display:block}
+#portraitB.portrait{width:120px;height:120px}
 /* ---- judge notes: the sensor channel, visible per reply ---- */
 .judgeNote{
   max-width:480px;margin:-.6em auto 1.5em;padding:7px 10px;cursor:pointer;
@@ -296,7 +274,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
   <section id="chatView" class="view hidden">
     <div id="chatMain">
       <div id="chatStrip">
-        <div id="portraitA" class="portrait"></div>
+        <canvas id="portraitA" class="portrait" aria-hidden="true"></canvas>
         <div id="stripId">
           <div id="stripName"></div>
           <div id="stripMood">listening</div>
@@ -319,7 +297,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
     </div>
     <aside id="chatSide">
       <div style="display:flex;gap:10px;align-items:center">
-        <div id="portraitB" class="portrait" style="width:64px;height:64px"></div>
+        <canvas id="portraitB" class="portrait" aria-hidden="true"></canvas>
         <div>
           <span class="t">PROGRAM vs PERFORMANCE</span>
           <div id="sideMood" style="font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-top:3px">listening</div>
@@ -1095,37 +1073,212 @@ $('#hostedForm').addEventListener('submit',e=>{
 });
 $('#modelBtn').addEventListener('click',openModels);
 
-/* ---------- character portrait: the figure's face, driven by the judge ---------- */
-function buildPortrait(el){
-  el.innerHTML=`<svg viewBox="0 0 100 100" aria-hidden="true" style="width:100%;height:100%">
-    <circle class="head" cx="50" cy="52" r="38"/>
-    <line class="brow browL" x1="27" y1="38" x2="43" y2="38"/>
-    <line class="brow browR" x1="57" y1="38" x2="73" y2="38"/>
-    <circle class="eye eyeL" cx="35" cy="47" r="3.2"/>
-    <circle class="eye eyeR" cx="65" cy="47" r="3.2"/>
-    <g class="mouth"><path class="mouthP" d="M38 67 Q50 76 62 67"/></g>
-  </svg>`;
+/* ---------- the close-up puppet ----------
+   Ported from odyssey-halfworld (assets/character/_close/face.mjs and
+   scenes/_direction.mjs): faces are continuous parameter states, emotions are
+   parameter VECTORS that ramp in (~0.35s) and out (~0.5s), the upper lip
+   belongs to the skull and the lower lip rides the jaw, hair is a ragged
+   seeded silhouette so each figure's face is stable and its own, and the
+   mouth aperture is the darkest thing in the frame. Here the DIRECTOR is the
+   radar: each judge update picks the emotion and its intensity. */
+const EMOTIONS={
+  recognition:  {browUp:.90,eyeWide:.62,headPitch:-.10,jaw:.14},
+  contempt:     {browKnit:.30,eyeNarrow:.58,mouthAsym:.70,headYaw:.12,headPitch:-.10},
+  irony:        {browUp:.30,eyeNarrow:.34,mouthAsym:.62,headRoll:-.10,smile:.14},
+  appeal:       {browUp:.70,browKnit:.30,eyeWide:.30,headPitch:-.16},
+  weariness:    {browUp:.26,browKnit:.18,eyeNarrow:.46,frown:.22,headPitch:.26},
+  resolve:      {browKnit:.40,eyeNarrow:.22,frown:.12,headPitch:-.04},
+  command:      {browKnit:.48,eyeWide:.16,frown:.10,headPitch:-.06},
+  tenderness:   {browUp:.34,smile:.30,eyeNarrow:.20,headPitch:.16,headRoll:.07},
+  grief:        {browUp:.50,browKnit:.52,frown:.52,headPitch:.34},
+  concern:      {browUp:.48,browKnit:.40,frown:.28,headPitch:.12},
+  fear:         {browUp:.85,browKnit:.45,eyeWide:.80,headPitch:.10},
+  wonder:       {browUp:.68,eyeWide:.55,headPitch:-.14},
+  joy:          {smile:.85,browUp:.45,eyeWide:.25,cheek:.50},
+  guarded:      {browKnit:.28,eyeNarrow:.30,frown:.18,headYaw:.22},
+  skepticism:   {browUp:.16,browKnit:.36,eyeNarrow:.40,mouthAsym:.65,headRoll:-.22},
+  desperation:  {browUp:.95,browKnit:.22,eyeWide:.65,frown:.40}
+};
+const FACE_PARAMS=['browUp','browKnit','eyeWide','eyeNarrow','smile','frown','mouthAsym','jaw','cheek','headPitch','headYaw','headRoll'];
+function seedOf(str){let h=2166136261>>>0;for(let i=0;i<String(str).length;i++){h^=String(str).charCodeAt(i);h=Math.imul(h,16777619)>>>0}return h}
+function rnd2(seed,i){const s=Math.sin((seed%9973)*0.017+i*12.9898)*43758.5453;return s-Math.floor(s)}
+/* identity from the name seed: the odyssey pays eight lines of parameters per
+   face; a minted figure pays a seeded draw inside the same safe ranges */
+function faceSpecFor(name){
+  const s=seedOf(name||'figure');
+  const r=(i,a,b)=>a+rnd2(s,i)*(b-a);
+  return{seed:s,faceW:r(1,.92,1.08),jawW:r(2,.85,1.12),chin:r(3,.9,1.1),
+    browW:r(4,.9,1.3),eyeGap:r(5,.9,1.14),hairMass:r(6,.55,1.2),
+    hairDrop:r(7,-.05,.16),lip:r(8,.88,1.06),amp:r(9,.03,.1)};
 }
-function setMood(mood,speaking){
-  STATE.mood=mood;
-  for(const id of ['portraitA','portraitB']){
-    const el=document.getElementById(id);if(!el)continue;
-    el.dataset.mood=mood;el.classList.toggle('speaking',!!speaking);
+const PUPPETS=[];
+function makePuppet(canvas,name){
+  const p={canvas,spec:faceSpecFor(name),
+    cur:Object.fromEntries(FACE_PARAMS.map(k=>[k,0])),
+    tgt:Object.fromEntries(FACE_PARAMS.map(k=>[k,0])),
+    speaking:false,blinkAt:performance.now()/1000+1.5+rnd2(seedOf(name),77)*3,
+    sacX:0,sacY:0,sacAt:0,talkPhase:rnd2(seedOf(name),91)*10};
+  const at=PUPPETS.findIndex(x=>x.canvas===canvas);
+  if(at>=0)PUPPETS[at]=p;else PUPPETS.push(p);
+  return p;
+}
+function setPerformance(emo,k,speaking){
+  STATE.mood=emo;
+  const vec=EMOTIONS[emo]||{};
+  for(const p of PUPPETS){
+    for(const key of FACE_PARAMS)p.tgt[key]=(vec[key]||0)*(k??1);
+    p.speaking=!!speaking;
   }
-  const word=speaking?'speaking':mood;
+  const word=speaking?'speaking':emo;
   $('#stripMood').textContent=word;
   const sm=$('#sideMood');if(sm)sm.textContent=word;
 }
-function moodFromEvents(evts){
+/* radar direction: the reply's dominant evidence axis casts the emotion */
+const AXIS_EMO={
+  openness:['wonder','recognition'],conscientious:['resolve','resolve'],
+  extraversion:['joy','tenderness'],agreeableness:['tenderness','tenderness'],
+  neuroticism:['fear','concern'],logic:['skepticism','skepticism'],
+  empathy:['tenderness','concern'],authority:['command','resolve'],
+  risk:['recognition','resolve'],uncertainty:['weariness','appeal'],
+  decisiveness:['resolve','resolve']
+};
+const AXIS_EMO_NEG={neuroticism:'resolve',uncertainty:'command',authority:'appeal',risk:'guarded',decisiveness:'weariness'};
+function directPerformance(evts){
   const s={};for(const e of evts)s[e.axis]=(s[e.axis]||0)+e.dir*e.w;
-  const g=k=>s[k]||0;
-  if(g('neuroticism')>=1)return'wary';
-  if(g('uncertainty')>=1&&g('decisiveness')<1)return'wavering';
-  if(g('authority')+g('decisiveness')>=1.4)return'firm';
-  if(g('agreeableness')+g('extraversion')+g('empathy')>=1.2)return'warm';
-  if(g('openness')>=1)return'wondering';
-  return'listening';
+  let best=null;
+  for(const k in s)if(!best||Math.abs(s[k])>Math.abs(s[best]))best=k;
+  if(!best)return{emo:'guarded',k:.3};
+  const v=s[best],mag=Math.abs(v);
+  const k=clamp(.45+mag/4,.45,1);
+  if(v<0)return{emo:AXIS_EMO_NEG[best]||'guarded',k};
+  return{emo:(AXIS_EMO[best]||['guarded'])[mag>=2.2?0:1],k};
 }
+/* draw one frame of one puppet, in the page's own paper/ink */
+function drawPuppet(p,t,ink,paper,skin,hair){
+  const c=p.canvas,dpr=Math.min(2,devicePixelRatio||1);
+  const w=c.clientWidth||56,h=c.clientHeight||56;
+  if(c.width!==w*dpr||c.height!==h*dpr){c.width=w*dpr;c.height=h*dpr}
+  const g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+  const st=p.cur,sp=p.spec;
+  const R=Math.min(w,h)*0.42;
+  const breathe=Math.sin(t*0.9+sp.seed%7)*0.012;
+  const cx=w/2+st.headYaw*R*0.14,cy=h/2+R*0.06+st.headPitch*R*0.16+breathe*R;
+  g.save();g.translate(w/2,h/2);g.rotate(st.headRoll*0.22);g.translate(-w/2,-h/2);
+  const lw=Math.max(1.1,R*0.055);
+  /* one silhouette: cranium fixed, mandible rides the jaw */
+  let talk=0;
+  if(p.speaking){
+    const ph=t*10.5+p.talkPhase;
+    talk=Math.max(0,Math.sin(ph)*0.55+Math.sin(ph*2.31)*0.3+0.25);
+  }
+  const jawDrop=R*0.22*clamp(st.jaw+talk*0.55,0,1);
+  const fw=R*0.92*sp.faceW,jw=fw*0.9*sp.jawW;
+  const yTop=cy-R*1.0,yTemple=cy-R*0.34,yJaw=cy+R*0.42+jawDrop*0.55,yChin=cy+R*0.8*sp.chin+jawDrop;
+  g.beginPath();
+  g.moveTo(cx-fw,yTemple);
+  g.quadraticCurveTo(cx-fw*1.02,yTop,cx,yTop);
+  g.quadraticCurveTo(cx+fw*1.02,yTop,cx+fw,yTemple);
+  g.quadraticCurveTo(cx+fw*0.98,cy+R*0.12,cx+jw,yJaw);
+  g.quadraticCurveTo(cx+jw*0.55,yChin,cx,yChin);
+  g.quadraticCurveTo(cx-jw*0.55,yChin,cx-jw,yJaw);
+  g.quadraticCurveTo(cx-fw*0.98,cy+R*0.12,cx-fw,yTemple);
+  g.closePath();
+  g.fillStyle=skin;g.fill();g.lineWidth=lw;g.strokeStyle=ink;g.stroke();
+  /* ragged hair mass, seeded by the figure's name */
+  const hm=sp.hairMass,hd=sp.hairDrop;
+  const hpts=[];const n=11;
+  for(let i=0;i<=n;i++){
+    const a=Math.PI*(1+i/n);
+    hpts.push([cx+Math.cos(a)*fw*1.04*hm,cy-R*0.28+Math.sin(a)*R*0.82*hm]);
+  }
+  hpts.push([cx+fw*0.95,yTemple-R*0.02+hd*R]);
+  hpts.push([cx,cy-R*(0.52-hd)]);
+  hpts.push([cx-fw*0.95,yTemple-R*0.02+hd*R]);
+  g.beginPath();
+  hpts.forEach(([x,y],i)=>{
+    const j=(rnd2(sp.seed,i)-0.4)*sp.amp*R;
+    if(i===0)g.moveTo(x,y+j);else g.lineTo(x+j,y+j);
+  });
+  g.closePath();g.fillStyle=hair;g.fill();g.lineWidth=lw*0.9;g.strokeStyle=ink;g.stroke();
+  /* brows: browUp lifts both, browKnit pulls the inner ends down and in */
+  const eyeY=cy-R*0.14,exo=sp.eyeGap*R*0.34,browY=cy-R*0.27-st.browUp*R*0.10;
+  g.lineWidth=Math.max(1.3,R*0.075*sp.browW);g.lineCap='round';g.strokeStyle=ink;
+  for(const side of [-1,1]){
+    const xi=cx+side*(exo-R*0.16+st.browKnit*R*0.06),xo=cx+side*(exo+R*0.18);
+    const yi=browY+st.browKnit*R*0.10,yo=browY+R*0.03;
+    g.beginPath();g.moveTo(xi,yi);g.quadraticCurveTo(cx+side*exo,browY-R*0.05,xo,yo);g.stroke();
+  }
+  /* eyes: lids from eyeWide/eyeNarrow, a blink gate, pupils with saccade */
+  if(t>p.blinkAt){if(t>p.blinkAt+0.13)p.blinkAt=t+2.6+rnd2(sp.seed,Math.floor(t))*3.2}
+  const blink=t>p.blinkAt&&t<=p.blinkAt+0.13?0.08:1;
+  if(t>p.sacAt){p.sacX=(rnd2(sp.seed,Math.floor(t*3))-0.5)*R*0.05;p.sacY=(rnd2(sp.seed,Math.floor(t*3)+9)-0.5)*R*0.02;p.sacAt=t+0.9+rnd2(sp.seed,Math.floor(t))*1.6}
+  const eh=Math.min(R*0.135,R*0.095*(1+st.eyeWide*0.6-st.eyeNarrow*0.55))*blink,ew=R*0.155;
+  for(const side of [-1,1]){
+    const ex=cx+side*exo;
+    g.beginPath();g.ellipse(ex,eyeY,ew,Math.max(R*0.008,eh),0,0,Math.PI*2);
+    g.fillStyle=paper;g.fill();g.lineWidth=Math.max(1,lw*0.7);g.strokeStyle=ink;g.stroke();
+    if(blink>0.5){
+      g.beginPath();g.arc(ex+p.sacX,eyeY+p.sacY,Math.min(eh*0.85,R*0.05),0,Math.PI*2);
+      g.fillStyle=ink;g.fill();
+      g.beginPath();g.arc(ex+p.sacX-R*0.015,eyeY+p.sacY-R*0.015,R*0.012,0,Math.PI*2);
+      g.fillStyle=paper;g.fill();
+    }
+  }
+  /* nose */
+  g.lineWidth=Math.max(1,lw*0.6);g.beginPath();g.moveTo(cx-R*0.02,eyeY+R*0.08);g.quadraticCurveTo(cx-R*0.05,cy+R*0.14,cx+R*0.04,cy+R*0.17);g.stroke();
+  /* mouth: the upper lip is fixed to the skull; the lower lip rides the jaw.
+     The aperture is the darkest thing in the frame. */
+  const yM=cy+R*0.42,mw=R*0.26*sp.lip;
+  const cornerL=yM-st.smile*R*0.09+st.frown*R*0.09-st.mouthAsym*R*0.06;
+  const cornerR=yM-st.smile*R*0.09+st.frown*R*0.09+st.mouthAsym*R*0.02;
+  const aperture=jawDrop*0.8;
+  if(aperture>R*0.02){
+    g.beginPath();
+    g.moveTo(cx-mw,cornerL);
+    g.quadraticCurveTo(cx,yM+R*0.01,cx+mw,cornerR);
+    g.quadraticCurveTo(cx,yM+aperture+R*0.03,cx-mw,cornerL);
+    g.closePath();g.fillStyle=ink;g.fill();
+  }else{
+    g.lineWidth=Math.max(1.2,lw*0.8);g.beginPath();
+    g.moveTo(cx-mw,cornerL);
+    g.quadraticCurveTo(cx,yM+(st.smile>st.frown?R*0.07*st.smile:-R*0.05*st.frown)+R*0.01,cx+mw,cornerR);
+    g.stroke();
+  }
+  if(st.cheek>0.15){
+    g.lineWidth=Math.max(1,lw*0.5);
+    for(const side of [-1,1]){g.beginPath();g.arc(cx+side*(mw+R*0.12),yM-R*0.05,R*0.07,side<0?Math.PI*0.25:Math.PI*0.55,side<0?Math.PI*0.45:Math.PI*0.75);g.stroke()}
+  }
+  g.restore();
+}
+/* canvas cannot parse light-dark(); resolve tokens through a probe element
+   whose computed color arrives fully resolved for the active theme */
+let probeEl=null,probeCache={},probeAt=0;
+function resolveToken(name,t){
+  if(t-probeAt>1){probeCache={};probeAt=t}
+  if(probeCache[name])return probeCache[name];
+  if(!probeEl){probeEl=document.createElement('i');probeEl.style.display='none';document.body.appendChild(probeEl)}
+  probeEl.style.color=`var(${name})`;
+  return probeCache[name]=getComputedStyle(probeEl).color;
+}
+/* the loop: emotions ramp (0.35s in, 0.5s out) rather than switch */
+let puppetLast=0;
+function puppetLoop(now){
+  requestAnimationFrame(puppetLoop);
+  if(document.hidden||STATE.view!=='chat'||!PUPPETS.length)return;
+  const t=now/1000,dt=Math.min(0.08,t-(puppetLast||t));puppetLast=t;
+  const ink=resolveToken('--ink',t),paper=resolveToken('--paper',t);
+  const skin=resolveToken('--soft',t),hair=resolveToken('--muted',t);
+  for(const p of PUPPETS){
+    if(!p.canvas.isConnected)continue;
+    for(const k of FACE_PARAMS){
+      const cur=p.cur[k],tgt=p.tgt[k];
+      const rate=Math.abs(tgt)>Math.abs(cur)?dt/0.35:dt/0.5;
+      p.cur[k]=cur+(tgt-cur)*Math.min(1,rate*3);
+    }
+    drawPuppet(p,t,ink,paper,skin,hair);
+  }
+}
+requestAnimationFrame(puppetLoop);
 
 /* ---------- encounter (1.6.3 script reader + visible sensor/actuator loop) ---------- */
 function enterChat(){
@@ -1134,8 +1287,8 @@ function enterChat(){
   document.body.dataset.printName=STATE.figureName.toUpperCase();
   discoverLocal();
   $('#stripName').textContent=STATE.figureName;
-  buildPortrait($('#portraitA'));buildPortrait($('#portraitB'));
-  setMood(STATE.mood,false);
+  makePuppet($('#portraitA'),STATE.figureName);makePuppet($('#portraitB'),STATE.figureName);
+  setPerformance(STATE.mood in EMOTIONS?STATE.mood:'guarded',.35,false);
   renderDrift();
   if(!$('#prose').querySelector('.programNote')){
     const pn=document.createElement('div');pn.className='programNote';
@@ -1170,7 +1323,8 @@ function judgeReply(text){
     k:a.k,abbr:a.abbr,label:a.label,
     from:prev[a.k],to:STATE.perf.theta[a.k],d:STATE.perf.theta[a.k]-prev[a.k]
   })).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
-  const entry={idx:STATE.judgeLog.length+1,events:evts,deltas,drift:driftFinding(),fedBack:null,noteEl:null};
+  const entry={idx:STATE.judgeLog.length+1,events:evts,deltas,drift:driftFinding(),
+    direction:directPerformance(evts),fedBack:null,noteEl:null};
   STATE.judgeLog.push(entry);
   return entry;
 }
@@ -1181,7 +1335,7 @@ function addJudgeNote(entry){
     ?entry.deltas.slice(0,4).map(x=>`${x.abbr} ${x.from.toFixed(1)}→${x.to.toFixed(1)}<span class="${x.d>=0?'up':'down'}">${x.d>=0?'▲':'▼'}</span>`).join(' · ')
     :'no marker evidence — model unchanged';
   const w=entry.drift;
-  d.innerHTML=`<span class="jTag">JUDGE</span>${deltaTxt} · ${entry.events.length} evidence${w&&Math.abs(w.d)>=.6?` · drift <span class="down">${w.d>0?'+':''}${w.d.toFixed(1)} ${w.abbr}</span>`:''}`;
+  d.innerHTML=`<span class="jTag">JUDGE</span>${deltaTxt} · ${entry.events.length} evidence · played as ${entry.direction.emo.toUpperCase()}${w&&Math.abs(w.d)>=.6?` · drift <span class="down">${w.d>0?'+':''}${w.d.toFixed(1)} ${w.abbr}</span>`:''}`;
   d.addEventListener('click',()=>openJudgeSheet(entry.idx));
   entry.noteEl=d;
   $('#prose').appendChild(d);
@@ -1191,6 +1345,7 @@ function openJudgeSheet(idx){
   const entry=STATE.judgeLog.find(x=>x.idx===idx);if(!entry)return;
   openSheet('JUDGE — REPLY '+idx,
    `<p style="font-size:12px">The judge is the sensor: it reads the generator's reply with the same evidence engine that read the archive, and updates the running model of the person — θ ← θ + (v−θ)/(n+2) per axis.</p>
+    <div class="notice" style="margin-bottom:8px">DIRECTION — the reply's dominant evidence axis casts the face: played as <b style="color:var(--ink)">${entry.direction.emo.toUpperCase()}</b> at intensity ${entry.direction.k.toFixed(2)}.</div>
     ${entry.deltas.length?entry.deltas.map(x=>`<div class="evRow"><b>${x.label}</b> ${x.from.toFixed(2)} → ${x.to.toFixed(2)} <span class="${x.d>=0?'dirUp':'dirDown'}">${x.d>=0?'+':''}${x.d.toFixed(2)}</span></div>`).join(''):'<div class="notice">No axis moved on this reply.</div>'}
     <h3 style="margin-top:14px">Evidence in this reply</h3>
     ${entry.events.length?entry.events.map(e=>`<div class="evRow">
@@ -1259,7 +1414,7 @@ $('#composer').addEventListener('submit',async e=>{
   ta.value='';
   addTurn('visitor',text);
   STATE.chatBusy=true;
-  setMood(STATE.mood,true);
+  setPerformance(STATE.mood in EMOTIONS?STATE.mood:'guarded',.4,true);
   const pending=document.createElement('div');pending.className='replyPending';pending.textContent='…';
   $('#prose').appendChild(pending);$('#prose').scrollTop=$('#prose').scrollHeight;
   const history=STATE.messages.filter(m=>m.who!=='system').map(m=>({role:m.who==='visitor'?'user':'assistant',content:m.text}));
@@ -1272,11 +1427,11 @@ $('#composer').addEventListener('submit',async e=>{
     addTurn('figure',reply);
     const entry=judgeReply(reply);
     addJudgeNote(entry);
-    setMood(moodFromEvents(entry.events),false);
+    setPerformance(entry.direction.emo,entry.direction.k,false);
     renderDrift();
   }catch(err){
     pending.remove();
-    setMood(STATE.mood,false);
+    setPerformance(STATE.mood in EMOTIONS?STATE.mood:'guarded',.35,false);
     addTurn('system','Model error: '+err.message);
   }finally{
     STATE.chatBusy=false;renderChrome();
