@@ -75,13 +75,52 @@ body[data-view="chat"] #actionBar{display:none!important}
 #chatView{padding:0;display:grid;grid-template-columns:minmax(0,1fr);place-items:stretch}
 @media(min-width:920px){#chatView{grid-template-columns:minmax(0,1fr) 320px}}
 #chatMain{display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-width:0;min-height:0}
-#chatStrip{grid-row:1;display:flex;gap:10px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line);min-height:44px}
+#chatStrip{grid-row:1;display:flex;gap:9px;align-items:center;padding:5px 10px;border-bottom:1px solid var(--line);min-height:64px}
 #chatMain>#prose{grid-row:2}
 #chatMain>.composer{grid-row:3}
-#stripName{font:700 13px/1.1 ui-serif,Georgia,serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#driftChip{font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stripId{min-width:0;flex:1}
+#stripName{font:700 14px/1.15 ui-serif,Georgia,serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stripMood{font-size:9px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-top:2px}
+#stripRadar{width:56px;height:56px;flex:none}
+#driftChip{font-size:10px;color:var(--muted);white-space:nowrap;max-width:26vw;overflow:hidden;text-overflow:ellipsis}
 #driftChip b{color:var(--bad)}
 @media(min-width:920px){#chatStrip{display:none}}
+/* ---- character portrait (animated) ---- */
+.portrait{width:52px;height:52px;flex:none}
+.portrait .head{fill:var(--soft);stroke:var(--ink);stroke-width:2.4}
+.portrait .brow{stroke:var(--ink);stroke-width:2.6;stroke-linecap:round}
+.portrait .eye{fill:var(--ink)}
+.portrait .mouthP{stroke:var(--ink);stroke-width:2.6;fill:none;stroke-linecap:round}
+.portrait .browL,.portrait .browR,.portrait .mouth,.portrait .eyeL,.portrait .eyeR{transform-box:fill-box;transform-origin:center;transition:transform .55s ease}
+.portrait .eyeL,.portrait .eyeR{animation:blink 4.6s infinite}
+.portrait .eyeR{animation-delay:.12s}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
+.portrait[data-mood=warm] .mouth{transform:scaleY(1.25)}
+.portrait[data-mood=warm] .browL,.portrait[data-mood=warm] .browR{transform:translateY(-2px)}
+.portrait[data-mood=firm] .mouth{transform:scaleY(.12)}
+.portrait[data-mood=firm] .browL{transform:rotate(9deg) translateY(1px)}
+.portrait[data-mood=firm] .browR{transform:rotate(-9deg) translateY(1px)}
+.portrait[data-mood=wary] .browL{transform:rotate(-13deg) translateY(-2px)}
+.portrait[data-mood=wary] .browR{transform:rotate(13deg) translateY(-2px)}
+.portrait[data-mood=wary] .mouth{transform:scaleY(.3) translateY(2px)}
+.portrait[data-mood=wondering] .browL,.portrait[data-mood=wondering] .browR{transform:translateY(-3.5px)}
+.portrait[data-mood=wondering] .mouth{transform:scale(.55,.8)}
+.portrait[data-mood=wavering] .browL{transform:translateY(-2.5px) rotate(-6deg)}
+.portrait[data-mood=wavering] .browR{transform:translateY(1.5px) rotate(-4deg)}
+.portrait[data-mood=wavering] .mouth{transform:rotate(-5deg) scaleY(.45)}
+.portrait.speaking .mouth{animation:talk .32s infinite alternate ease-in-out}
+@keyframes talk{from{transform:scaleY(.35)}to{transform:scaleY(1.15)}}
+/* ---- judge notes: the sensor channel, visible per reply ---- */
+.judgeNote{
+  max-width:480px;margin:-.6em auto 1.5em;padding:7px 10px;cursor:pointer;
+  border:1px solid var(--line);border-left:3px solid var(--warn);
+  font:10.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)
+}
+.judgeNote .jTag{font-weight:900;letter-spacing:.12em;color:var(--warn);margin-right:7px}
+.judgeNote .up{color:var(--good);font-weight:700}
+.judgeNote .down{color:var(--bad);font-weight:700}
+.judgeNote .jFb{display:block;margin-top:2px;color:var(--blue)}
+@media print{.judgeNote{display:none!important}}
 #prose{
   min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   padding:18px max(16px,calc((100% - 640px)/2)) 40px;
@@ -107,6 +146,7 @@ body[data-view="chat"] #actionBar{display:none!important}
 .composerTools{grid-column:1/-1;display:flex;align-items:center;gap:2px;min-width:0;border-top:1px solid var(--line);padding-top:5px}
 .composerTools select{border:1px solid var(--line);background:transparent;padding:5px 6px;font-size:10px;min-width:0;max-width:38vw}
 .composerTools button{border:0;background:transparent;font-size:10px;color:var(--muted);font-weight:600;padding:6px 8px;letter-spacing:.04em;white-space:nowrap}
+.composerTools button[aria-pressed=true]{color:var(--warn)}
 #chatNote{margin-left:auto;font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #chatSide{display:none;border-left:1px solid var(--line);padding:10px;min-height:0;overflow:hidden;grid-template-rows:auto minmax(0,1fr) auto;gap:6px}
 @media(min-width:920px){#chatSide{display:grid}}
@@ -209,8 +249,13 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
   <section id="chatView" class="view hidden">
     <div id="chatMain">
       <div id="chatStrip">
-        <span id="stripName"></span>
+        <div id="portraitA" class="portrait"></div>
+        <div id="stripId">
+          <div id="stripName"></div>
+          <div id="stripMood">listening</div>
+        </div>
         <span id="driftChip"></span>
+        <svg id="stripRadar" viewBox="0 0 720 552" aria-label="Live radar"></svg>
       </div>
       <div id="prose" aria-live="polite"></div>
       <form id="composer" class="composer">
@@ -219,6 +264,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
         <div class="composerTools">
           <select id="chatModel" aria-label="Model"><option value="">finding models…</option></select>
           <button id="addModelBtn" type="button">ADD MODEL</button>
+          <button id="feedbackBtn" type="button" aria-pressed="true" title="Feed the judge's verdict back into the generator's next turn">FEEDBACK ON</button>
           <button id="radarPeekBtn" type="button">RADAR</button>
           <button id="printBtn" type="button">PRINT</button>
           <span id="chatNote"></span>
@@ -226,7 +272,13 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
       </form>
     </div>
     <aside id="chatSide">
-      <span class="t">PROGRAM vs PERFORMANCE</span>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div id="portraitB" class="portrait" style="width:64px;height:64px"></div>
+        <div>
+          <span class="t">PROGRAM vs PERFORMANCE</span>
+          <div id="sideMood" style="font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-top:3px">listening</div>
+        </div>
+      </div>
       <svg id="sideRadar" viewBox="0 0 720 552" aria-label="Live performance radar"></svg>
       <div id="driftNote">The red polygon is the figure's generated speech, scored by the same evidence engine.</div>
     </aside>
@@ -549,6 +601,14 @@ function effectiveDims(){
 }
 function renderRadarInto(svg,snap,opts={}){
   const small=!!opts.small;
+  if(opts.tiny){
+    let t=`<circle cx="${CX}" cy="${CY}" r="${R+8}" fill="none" stroke="var(--line)" stroke-width="8"/>`;
+    t+=`<polygon points="${poly(k=>snap.shown.theta[k])}" fill="var(--ink)" opacity=".16"/>`;
+    t+=`<polygon points="${poly(k=>snap.shown.theta[k])}" fill="none" stroke="var(--ink)" stroke-width="16"/>`;
+    if(Object.keys(STATE.steer).length){const eff=effectiveDims();t+=`<polygon points="${poly(k=>eff[k])}" fill="none" stroke="var(--blue)" stroke-width="16"/>`}
+    if(STATE.perfActive)t+=`<polygon points="${poly(k=>STATE.perf.theta[k])}" fill="none" stroke="var(--bad)" stroke-width="16" stroke-dasharray="30,26"/>`;
+    svg.innerHTML=t;return;
+  }
   let out='';
   for(let ring=1;ring<=5;ring++){
     const r=R*ring/5;
@@ -613,7 +673,8 @@ const STATE={
   steer:{},editMode:false,
   sockets:[],activeSocketId:'',discovering:false,
   messages:[],chatBusy:false,system:'',
-  perf:emptyChannel(),perfActive:false
+  perf:emptyChannel(),perfActive:false,
+  judgeLog:[],feedback:true,mood:'listening'
 };
 function currentSnap(){
   return STATE.fig?STATE.fig.snapshots[Math.min(STATE.scrubIdx,STATE.fig.snapshots.length-1)]:null;
@@ -672,6 +733,7 @@ function compile(){
   STATE.selectedAxis='';STATE.llmDims=null;STATE.llmMeta=null;
   STATE.steer={};STATE.editMode=false;$('#editBtn').setAttribute('aria-pressed','false');
   STATE.messages=[];STATE.perf=emptyChannel();STATE.perfActive=false;$('#prose').innerHTML='';
+  STATE.judgeLog=[];STATE.mood='listening';
   const sc=$('#scrubber');sc.max=String(STATE.fig.snapshots.length-1);sc.value=String(STATE.scrubIdx);
   discoverLocal();
   show('figure');renderFigure();
@@ -828,18 +890,51 @@ document.addEventListener('submit',e=>{
   renderModels();closeSheet();
 });
 
-/* ---------- encounter (1.6.3 script reader) ---------- */
+/* ---------- character portrait: the figure's face, driven by the judge ---------- */
+function buildPortrait(el){
+  el.innerHTML=`<svg viewBox="0 0 100 100" aria-hidden="true" style="width:100%;height:100%">
+    <circle class="head" cx="50" cy="52" r="38"/>
+    <line class="brow browL" x1="27" y1="38" x2="43" y2="38"/>
+    <line class="brow browR" x1="57" y1="38" x2="73" y2="38"/>
+    <circle class="eye eyeL" cx="35" cy="47" r="3.2"/>
+    <circle class="eye eyeR" cx="65" cy="47" r="3.2"/>
+    <g class="mouth"><path class="mouthP" d="M38 67 Q50 76 62 67"/></g>
+  </svg>`;
+}
+function setMood(mood,speaking){
+  STATE.mood=mood;
+  for(const id of ['portraitA','portraitB']){
+    const el=document.getElementById(id);if(!el)continue;
+    el.dataset.mood=mood;el.classList.toggle('speaking',!!speaking);
+  }
+  const word=speaking?'speaking':mood;
+  $('#stripMood').textContent=word;
+  const sm=$('#sideMood');if(sm)sm.textContent=word;
+}
+function moodFromEvents(evts){
+  const s={};for(const e of evts)s[e.axis]=(s[e.axis]||0)+e.dir*e.w;
+  const g=k=>s[k]||0;
+  if(g('neuroticism')>=1)return'wary';
+  if(g('uncertainty')>=1&&g('decisiveness')<1)return'wavering';
+  if(g('authority')+g('decisiveness')>=1.4)return'firm';
+  if(g('agreeableness')+g('extraversion')+g('empathy')>=1.2)return'warm';
+  if(g('openness')>=1)return'wondering';
+  return'listening';
+}
+
+/* ---------- encounter (1.6.3 script reader + visible sensor/actuator loop) ---------- */
 function enterChat(){
   compileSystem();
   show('chat');
   document.body.dataset.printName=STATE.figureName.toUpperCase();
   discoverLocal();renderModels();
-  $('#stripName').textContent=STATE.figureName+' — encounter';
-  renderRadarInto($('#sideRadar'),currentSnap(),{small:true});
+  $('#stripName').textContent=STATE.figureName;
+  buildPortrait($('#portraitA'));buildPortrait($('#portraitB'));
+  setMood(STATE.mood,false);
   renderDrift();
   if(!$('#prose').querySelector('.programNote')){
     const pn=document.createElement('div');pn.className='programNote';
-    pn.innerHTML=`<strong>${esc(STATE.figureName)}</strong> — a fictional performance compiled from a recorded conversation. The radar is the program${Object.keys(STATE.steer).length?', as steered':''}; every reply is scored against it. Generated speech is performance, not testimony.`;
+    pn.innerHTML=`<strong>${esc(STATE.figureName)}</strong> — a fictional performance compiled from a recorded conversation. The radar is the program${Object.keys(STATE.steer).length?', as steered':''}. Two windows run at once: the <strong>generator</strong> performs the program, and after every reply the <strong>judge</strong> re-measures the model of the person — the update is printed under each reply, and with FEEDBACK on the verdict steers the next turn.`;
     $('#prose').prepend(pn);
   }
   setTimeout(()=>$('#visitorText').focus(),0);
@@ -861,11 +956,59 @@ function addTurn(who,text){
   $('#prose').scrollTop=$('#prose').scrollHeight;
   return d;
 }
-function scoreReply(text){
-  const evts=scanTurn({text},'live');
-  if(!evts.length)return;
-  updateChannel(STATE.perf,eventsToSums(evts));
-  STATE.perfActive=true;
+/* the judge: score a reply, record exactly how the model of the person moved */
+function judgeReply(text){
+  const evts=scanTurn({text:String(text||'').replace(/\s+/g,' ')},'R'+(STATE.judgeLog.length+1));
+  const prev={...STATE.perf.theta},prevN={...STATE.perf.n};
+  if(evts.length){updateChannel(STATE.perf,eventsToSums(evts));STATE.perfActive=true}
+  const deltas=AXES.filter(a=>STATE.perf.n[a.k]!==prevN[a.k]).map(a=>({
+    k:a.k,abbr:a.abbr,label:a.label,
+    from:prev[a.k],to:STATE.perf.theta[a.k],d:STATE.perf.theta[a.k]-prev[a.k]
+  })).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+  const entry={idx:STATE.judgeLog.length+1,events:evts,deltas,drift:driftFinding(),fedBack:null,noteEl:null};
+  STATE.judgeLog.push(entry);
+  return entry;
+}
+function addJudgeNote(entry){
+  const d=document.createElement('div');
+  d.className='judgeNote';
+  const deltaTxt=entry.deltas.length
+    ?entry.deltas.slice(0,4).map(x=>`${x.abbr} ${x.from.toFixed(1)}→${x.to.toFixed(1)}<span class="${x.d>=0?'up':'down'}">${x.d>=0?'▲':'▼'}</span>`).join(' · ')
+    :'no marker evidence — model unchanged';
+  const w=entry.drift;
+  d.innerHTML=`<span class="jTag">JUDGE</span>${deltaTxt} · ${entry.events.length} evidence${w&&Math.abs(w.d)>=.6?` · drift <span class="down">${w.d>0?'+':''}${w.d.toFixed(1)} ${w.abbr}</span>`:''}`;
+  d.addEventListener('click',()=>openJudgeSheet(entry.idx));
+  entry.noteEl=d;
+  $('#prose').appendChild(d);
+  $('#prose').scrollTop=$('#prose').scrollHeight;
+}
+function openJudgeSheet(idx){
+  const entry=STATE.judgeLog.find(x=>x.idx===idx);if(!entry)return;
+  openSheet('JUDGE — REPLY '+idx,
+   `<p style="font-size:12px">The judge is the sensor: it reads the generator's reply with the same evidence engine that read the archive, and updates the running model of the person — θ ← θ + (v−θ)/(n+2) per axis.</p>
+    ${entry.deltas.length?entry.deltas.map(x=>`<div class="evRow"><b>${x.label}</b> ${x.from.toFixed(2)} → ${x.to.toFixed(2)} <span class="${x.d>=0?'dirUp':'dirDown'}">${x.d>=0?'+':''}${x.d.toFixed(2)}</span></div>`).join(''):'<div class="notice">No axis moved on this reply.</div>'}
+    <h3 style="margin-top:14px">Evidence in this reply</h3>
+    ${entry.events.length?entry.events.map(e=>`<div class="evRow">
+      <span class="evMeta">${e.axis.toUpperCase()} · ${e.ch==='manner'?'SHOWN':'TOLD'}</span>
+      <span class="${e.dir>0?'dirUp':'dirDown'}">${e.dir>0?'▲':'▼'} ${e.w}</span>
+      <div class="q">${esc(e.pre)}<mark>${esc(e.match)}</mark>${esc(e.post)}</div>
+    </div>`).join(''):'<div class="notice">No markers matched.</div>'}
+    ${entry.fedBack?`<h3 style="margin-top:14px">Fed back to the generator</h3><pre>${esc(entry.fedBack)}</pre>`:'<div class="notice" style="margin-top:12px">Not fed back (no significant drift, or FEEDBACK off at the next turn).</div>'}`);
+}
+/* the actuator side: the judge's verdict, compiled into a corrective for the next turn */
+function buildFeedback(){
+  if(!STATE.feedback||!STATE.judgeLog.length)return null;
+  const last=STATE.judgeLog[STATE.judgeLog.length-1];
+  const w=last.drift;
+  if(!w||Math.abs(w.d)<.5)return null;
+  const eff=effectiveDims();
+  const text=`JUDGE FEEDBACK (sensor → generator, do not mention this): your last reply measured ${w.label.toLowerCase()} at ${STATE.perf.theta[w.k].toFixed(1)} against the program's ${eff[w.k].toFixed(1)} — you are ${w.d>0?'overplaying':'underplaying'} it by ${Math.abs(w.d).toFixed(1)}. In your next reply, ${w.d>0?'pull back toward':'lean further into'} the program on this axis while staying in character.`;
+  last.fedBack=text;
+  if(last.noteEl&&!last.noteEl.querySelector('.jFb')){
+    const s=document.createElement('span');s.className='jFb';s.textContent='→ verdict fed back into the generator';
+    last.noteEl.appendChild(s);
+  }
+  return text;
 }
 function driftFinding(){
   if(!STATE.perfActive)return null;
@@ -880,6 +1023,7 @@ function driftFinding(){
 }
 function renderDrift(){
   renderRadarInto($('#sideRadar'),currentSnap(),{small:true});
+  renderRadarInto($('#stripRadar'),currentSnap(),{tiny:true});
   const worst=driftFinding();
   const noteEl=$('#driftNote'),chip=$('#driftChip');
   if(!STATE.perfActive){
@@ -910,27 +1054,39 @@ $('#composer').addEventListener('submit',async e=>{
   ta.value='';
   addTurn('visitor',text);
   STATE.chatBusy=true;
+  setMood(STATE.mood,true);
   const pending=document.createElement('div');pending.className='replyPending';pending.textContent='…';
   $('#prose').appendChild(pending);$('#prose').scrollTop=$('#prose').scrollHeight;
   const history=STATE.messages.filter(m=>m.who!=='system').map(m=>({role:m.who==='visitor'?'user':'assistant',content:m.text}));
+  const feedback=buildFeedback();
+  const messages=[{role:'system',content:STATE.system},...history];
+  if(feedback)messages.push({role:'system',content:feedback});
   try{
     const res=await fetch(sock.base+'/chat/completions',{method:'POST',
       headers:{'Content-Type':'application/json',...(sock.key?{Authorization:'Bearer '+sock.key}:{})},
-      body:JSON.stringify({model:sock.model,temperature:.8,max_tokens:320,
-        messages:[{role:'system',content:STATE.system},...history]})});
+      body:JSON.stringify({model:sock.model,temperature:.8,max_tokens:320,messages})});
     if(!res.ok)throw Error('HTTP '+res.status+': '+(await res.text()).slice(0,160));
     const j=await res.json();
     const reply=(j.choices?.[0]?.message?.content||'').trim()||'(no reply)';
     pending.remove();
     addTurn('figure',reply);
-    scoreReply(reply);
+    const entry=judgeReply(reply);
+    addJudgeNote(entry);
+    setMood(moodFromEvents(entry.events),false);
     renderDrift();
   }catch(err){
     pending.remove();
+    setMood(STATE.mood,false);
     addTurn('system','Model error: '+err.message);
   }finally{
     STATE.chatBusy=false;renderChrome();
   }
+});
+$('#feedbackBtn').addEventListener('click',()=>{
+  STATE.feedback=!STATE.feedback;
+  const b=$('#feedbackBtn');
+  b.setAttribute('aria-pressed',String(STATE.feedback));
+  b.textContent=STATE.feedback?'FEEDBACK ON':'FEEDBACK OFF';
 });
 $('#visitorText').addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#composer').requestSubmit()}
@@ -971,7 +1127,7 @@ $('#theoryBtn').addEventListener('click',()=>openSheet('THEORY',`
   <p><b>The figure is a latent program.</b> The transcript is a sparse sample of a generative process; the Centaur Box's eleven-axis vector θ is its parameters. The radar is the posterior over θ given the record.</p>
   <p><b>Inference.</b> Prior: every axis at 3, confidence 0. Each turn yields observation v = 3 + 1.5·tanh(Σ±w); update θ ← θ + (v−θ)/(n+2); confidence n/(n+4) sets the band. Silence stays at the prior — never filled with invented biography. Every score is traceable: tap an axis for its evidence.</p>
   <p><b>Two channels.</b> TOLD scores first-person claims; SHOWN scores manner (hedges, connectives, imperatives). Their divergence is the myth gap (Barthes) — the self-mythology measured against the tape.</p>
-  <p><b>The encounter closes the loop.</b> CHAT compiles the radar into a performance contract and a model performs it. Every generated reply is scored by the same engine (red polygon): the instrument measures live whether the performance carries the program. STEER lets you drag the program and hear the difference. PRINT emits the encounter as a clean monochrome script (1.6.3 print-clean).</p>
+  <p><b>The encounter is a dual context window.</b> The <b>generator</b> (actuator) performs the contract; the <b>judge</b> (sensor) reads every generated reply with the same evidence engine that read the archive, and updates the running model of the person — the per-axis movement is printed under each reply (tap it for the evidence). With FEEDBACK on, the judge's verdict is compiled into a corrective system message for the generator's next turn: sensor → controller → actuator, closed loop. STEER sets the reference signal; drift is the error term. PRINT emits the encounter as a clean monochrome script (1.6.3 print-clean).</p>
   <p><b>Centaur Box.</b> EXPORT hands θ to index.html (Observer panel → IMPORT FIGURE) as an agent's self-model; the Box's Observer re-runs this same inference from conversation alone.</p>
   <h3 style="margin-top:16px">Current contract</h3>
   <pre>${esc(STATE.system||'(compile a figure first)')}</pre>`));
