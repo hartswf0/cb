@@ -208,7 +208,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
   <section id="ingestView" class="view">
     <div class="ingestBox">
       <h1>Figure → radar → encounter</h1>
-      <textarea id="pasteText" aria-label="Transcript" placeholder="Paste a StoryCorps transcript (ER: / HR: labels). The figure's latent program is inferred from evidence, drawn as a radar, and performed in chat."></textarea>
+      <textarea id="pasteText" aria-label="Transcript or writing" placeholder="Paste anything — an interview transcript (ER: / HR: labels), a labeled monologue, or plain writing. The voice's latent program is inferred from evidence, drawn as a radar, and performed in chat."></textarea>
       <div id="auditLine">Paste a transcript, or LOAD SAMPLE.</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
         <button id="sampleBtn" class="quiet" type="button">LOAD SAMPLE</button>
@@ -410,21 +410,72 @@ function targetRanking(turns){
   for(const x of stats)x.score=x.answers*9+x.chars/220+x.longTurns*.8-x.questions*2.5;
   return stats.sort((a,b)=>b.score-a.score||b.chars-a.chars);
 }
-function auditTranscript(turns,meta={},targetOverride=''){
+/* ---------- universal ingestion ----------
+   Anything pastes: a two-voice interview, a labeled monologue like
+   "David Wilson (DW)" followed by DW: paragraphs, or plain unlabeled
+   writing. Dialogue parses as before; everything else falls back to
+   MONOLOGUE mode — the whole text is one voice, paragraphs become turns
+   so the posterior still arrives as a sequence of evidence. */
+function detectMonologueName(raw,parsedTurns){
+  const first=(String(raw||'').split('\n').map(l=>l.trim()).find(Boolean))||'';
+  const m=first.match(/^([A-Z][^()\n:]{1,48}?)\s*\(([A-Za-z .]{1,6})\)\.?$/);
+  if(m)return{name:m[1].trim(),abbr:m[2].trim()};
+  if(parsedTurns.length){const r=targetRanking(parsedTurns);if(r[0])return{name:r[0].speaker,abbr:null}}
+  return{name:'THE SPEAKER',abbr:null};
+}
+function sentenceChunks(text,maxWords){
+  const sents=String(text).match(/[^.!?]+[.!?]+["']?|\S[^.!?]*$/g)||[String(text)];
+  const out=[];let cur='';
+  for(const s of sents){
+    if((cur+' '+s).trim().split(/\s+/).length>maxWords&&cur){out.push(cur.trim());cur=s}
+    else cur=(cur+' '+s);
+  }
+  if(cur.trim())out.push(cur.trim());
+  return out;
+}
+function paragraphTurns(raw,name){
+  const text=String(raw||'').replace(/ /g,' ').replace(/\r\n?/g,'\n');
+  let paras=text.split(/\n\s*\n+/).map(p=>p.replace(/\s+/g,' ').trim()).filter(Boolean);
+  // drop roster/header lines: short, no sentence punctuation
+  paras=paras.filter(p=>!(p.length<64&&!/[.!?]/.test(p)));
+  // strip a leading speaker label from a paragraph if one is present
+  paras=paras.map(p=>{
+    const m=p.match(/^([^:]{1,48}):\s+(.+)$/);
+    return m&&plausibleSpeakerLabel(m[1])?m[2]:p;
+  }).filter(p=>p.split(/\s+/).length>2);
+  if(paras.length<3)paras=paras.flatMap(p=>sentenceChunks(p,45));
+  return paras.map((p,i)=>({i:i+1,speaker:name,text:p}));
+}
+function ingestText(raw,targetOverride=''){
+  const parsed=parseTranscriptTextDetailed(raw);
+  const speakers=uniq(parsed.turns.map(t=>t.speaker));
+  const dialogueOK=parsed.turns.length>=4&&speakers.length>=2&&parsed.meta.coverage>=.45;
+  if(dialogueOK)return{turns:parsed.turns,meta:parsed.meta,mode:'dialogue'};
+  const id=detectMonologueName(raw,parsed.turns);
+  let name=targetOverride||id.name;
+  let turns=parsed.turns;
+  if(id.abbr)turns=turns.map(t=>({...t,speaker:t.speaker.toLowerCase()===id.abbr.toLowerCase()?name:t.speaker}));
+  const nameTurns=turns.filter(t=>t.speaker===name);
+  if(nameTurns.length>=3)turns=nameTurns.map((t,i)=>({...t,i:i+1}));
+  else turns=paragraphTurns(raw,name);
+  return{turns,meta:{coverage:1,ignoredLines:0},mode:'monologue'};
+}
+function auditTranscript(turns,meta={},targetOverride='',mode='dialogue'){
   const ranking=targetRanking(turns),speakers=ranking.map(x=>x.speaker);
   const target=speakers.includes(targetOverride)?targetOverride:(ranking[0]?.speaker||'');
   const coverage=Number.isFinite(meta.coverage)?meta.coverage:1;
   const targetTurns=turns.filter(t=>t.speaker===target);
   const targetWords=targetTurns.reduce((n,t)=>n+t.text.split(/\s+/).length,0);
   const issues=[];
-  if(turns.length<6)issues.push(`only ${turns.length} turns recovered`);
-  if(speakers.length<2)issues.push('one speaker detected');
-  if(coverage<.6)issues.push(`${Math.round(coverage*100)}% label coverage`);
-  if(!target)issues.push('no storyteller predicted');
-  if(targetWords<120)issues.push(`only ${targetWords} target words — posterior will hug the prior`);
-  const critical=turns.length<4||speakers.length<1||coverage<.45||!target||targetWords<40;
+  if(mode==='dialogue'){
+    if(turns.length<6)issues.push(`only ${turns.length} turns recovered`);
+    if(coverage<.6)issues.push(`${Math.round(coverage*100)}% label coverage`);
+  }
+  if(!target)issues.push('no voice could be recovered');
+  if(targetWords<120)issues.push(`only ${targetWords} words on the record — posterior will hug the prior`);
+  const critical=!target||targetWords<40||!turns.length;
   const level=critical?'bad':issues.length?'warn':'good';
-  return{level,coverage,speakers,target,turnCount:turns.length,targetTurns:targetTurns.length,targetWords,issues};
+  return{level,mode,coverage,speakers,target,turnCount:turns.length,targetTurns:targetTurns.length,targetWords,issues};
 }
 
 /* ---------- evidence lexicons ----------
@@ -443,6 +494,7 @@ const LEX={
  extraversion:[
   {rx:/\b(friends?|everybody|everyone|party|parties|danc(?:e|ed|ing)|laugh(?:ed|ing|ter)?|crowd|neighbors?|sing(?:ing|s)?|joke[ds]?)\b/gi,dir:1,w:1,ch:'story'},
   {rx:/\b(shy|quiet one|kept to myself|by myself|alone most)\b/gi,dir:-1,w:1,ch:'story'},
+  {rx:/\byou know\b/gi,dir:1,w:.3,ch:'manner'},
   {rx:/!/g,dir:1,w:.5,ch:'manner'},
   {rx:/\[(?:laugh(?:s|ter|ing)?)\]|\(laugh(?:s|ter|ing)?\)/gi,dir:1,w:.7,ch:'manner'}
  ],
@@ -454,6 +506,7 @@ const LEX={
  ],
  neuroticism:[
   {rx:/\b(afraid|scared|terrified|frighten(?:ed|ing)?|worr(?:y|ied|ies|ying)|nervous|anxious|anxiety|panic(?:ked)?|cried|crying|tears|depress\w+|lonely|loneliness|guilt\w*|ashamed|shame)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(fell apart|broken|devastat\w+|grief|mourn(?:ed|ing)?|heartbroken)\b/gi,dir:1,w:1,ch:'story'},
   {rx:/\b(calm|at peace|didn't (?:bother|scare) me|not afraid|never worried)\b/gi,dir:-1,w:1,ch:'story'}
  ],
  logic:[
@@ -464,6 +517,7 @@ const LEX={
   {rx:/\b(?:he|she|they)\s+(?:felt|must have felt|was hurting|were hurting|needed)\b/gi,dir:1,w:1,ch:'story'},
   {rx:/\bI could (?:see|tell|feel)\b/gi,dir:1,w:1,ch:'story'},
   {rx:/\b(put myself in|in (?:his|her|their) shoes|understood (?:him|her|them)|for (?:his|her|their) sake)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(support group|not just for (?:me|us)|for all people)\b/gi,dir:1,w:.8,ch:'story'},
   {rx:/\byou know (?:how|what) (?:it|that) (?:feels|felt|was) like\b/gi,dir:1,w:.6,ch:'manner'}
  ],
  authority:[
@@ -474,6 +528,7 @@ const LEX={
  ],
  risk:[
   {rx:/\b(chance[s]?|gamble[d]?|risk(?:ed|y|s)?|jumped|ran away|left everything|quit(?: my job)?|dared?|adventure|no idea what|packed (?:up|my bags)|hitchhiked|signed up)\b/gi,dir:1,w:1,ch:'story'},
+  {rx:/\b(lawsuit|plaintiff|fought for|fight for|stood up|spoke out)\b/gi,dir:1,w:1,ch:'story'},
   {rx:/\b(played it safe|stayed put|too dangerous|never dared|safe(?:ty first)?)\b/gi,dir:-1,w:1,ch:'story'}
  ],
  uncertainty:[
@@ -749,13 +804,15 @@ function runAudit(){
   const raw=$('#pasteText').value.trim();
   const line=$('#auditLine');
   if(!raw){STATE.turns=[];STATE.audit=null;line.textContent='Paste a transcript, or LOAD SAMPLE.';renderChrome();return}
-  const parsed=parseTranscriptTextDetailed(raw);
-  STATE.turns=parsed.turns;STATE.meta=parsed.meta;
-  STATE.audit=auditTranscript(parsed.turns,parsed.meta,STATE.targetOverride);
+  const ing=ingestText(raw,STATE.targetOverride);
+  STATE.turns=ing.turns;STATE.meta=ing.meta;
+  STATE.audit=auditTranscript(ing.turns,ing.meta,STATE.targetOverride,ing.mode);
   const a=STATE.audit,label=a.level==='good'?'READY':a.level==='warn'?'CHECK':'BLOCKED';
   line.innerHTML=`<span class="auditState ${a.level}">${label}</span>
-    <span>${a.turnCount} turns · ${a.speakers.length} speakers · ${Math.round(a.coverage*100)}% coverage · ${a.targetWords} target words</span>
+    ${a.mode==='monologue'?'<span class="auditState" style="color:var(--warn)">MONOLOGUE</span>':''}
+    <span>${a.turnCount} turns · ${a.mode==='monologue'?'one voice':a.speakers.length+' speakers · '+Math.round(a.coverage*100)+'% coverage'} · ${a.targetWords} words</span>
     ${a.speakers.length?`<label>FIGURE <select id="targetSel">${a.speakers.map(s=>`<option value="${esc(s)}" ${s===a.target?'selected':''}>${esc(s)}</option>`).join('')}</select></label>`:''}
+    ${a.mode==='monologue'?'<span>every line is attributed to this voice — told and shown channels both come from it</span>':''}
     ${a.issues.length?`<span>${esc(a.issues.join(' · '))}</span>`:''}`;
   line.querySelector('#targetSel')?.addEventListener('change',e=>{STATE.targetOverride=e.target.value;runAudit()});
   renderChrome();
