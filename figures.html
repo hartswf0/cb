@@ -103,23 +103,28 @@ body[data-view="chat"] #actionBar,body[data-view="models"] #actionBar{display:no
 #stripName{font:700 14px/1.15 ui-serif,Georgia,serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #stripMood{font-size:9px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-top:2px}
 #stripRadar{width:56px;height:56px;flex:none}
-#driftChip{font-size:10px;color:var(--muted);white-space:nowrap;max-width:26vw;overflow:hidden;text-overflow:ellipsis}
+#driftChip{font-size:10px;color:var(--muted);white-space:nowrap;max-width:38vw;overflow:hidden;text-overflow:ellipsis}
 #driftChip b{color:var(--bad)}
 @media(min-width:920px){#chatStrip{display:none}}
 /* ---- character portrait: canvas close-up puppet (odyssey-halfworld idiom) ---- */
 .portrait{width:56px;height:56px;flex:none;display:block}
 #portraitB.portrait{width:120px;height:120px}
-/* ---- judge notes: the sensor channel, visible per reply ---- */
+/* ---- judge whispers: the sensor speaks between turns, quietly.
+   The numbers are not hidden — they live one tap away in the sheet. ---- */
 .judgeNote{
-  max-width:480px;margin:-.6em auto 1.5em;padding:7px 10px;cursor:pointer;
-  border:1px solid var(--line);border-left:3px solid var(--warn);
-  font:10.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)
+  max-width:520px;margin:-.5em auto 1.7em;padding:0;border:0;cursor:pointer;
+  text-align:center;font:10px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:var(--muted);opacity:.8
 }
-.judgeNote .jTag{font-weight:900;letter-spacing:.12em;color:var(--warn);margin-right:7px}
-.judgeNote .up{color:var(--good);font-weight:700}
-.judgeNote .down{color:var(--bad);font-weight:700}
-.judgeNote .jFb{display:block;margin-top:2px;color:var(--blue)}
+.judgeNote:hover{opacity:1}
+.judgeNote .jTag{font-weight:800;letter-spacing:.1em;color:var(--warn)}
+.judgeNote .jFb{color:var(--blue);margin-left:6px}
 @media print{.judgeNote{display:none!important}}
+/* ---- quiet, themed scroll ---- */
+#prose,.sheetBody{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--ink) 22%,transparent) transparent}
+#prose::-webkit-scrollbar,.sheetBody::-webkit-scrollbar{width:5px}
+#prose::-webkit-scrollbar-thumb,.sheetBody::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ink) 20%,transparent);border-radius:4px}
+#prose::-webkit-scrollbar-track,.sheetBody::-webkit-scrollbar-track{background:transparent}
 #prose{
   min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   padding:18px max(16px,calc((100% - 640px)/2)) 40px;
@@ -224,12 +229,12 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
       <h1 id="figName"></h1>
       <p id="figMyth"></p>
       <div id="legendRow">
-        <span><span class="sw"></span>shown</span>
-        <span><span class="sw told"></span>told</span>
-        <span><span class="sw band"></span>±confidence</span>
+        <span><span class="sw"></span>how they speak</span>
+        <span><span class="sw told"></span>what they tell</span>
+        <span><span class="sw band"></span>uncertainty</span>
         <span id="legSteer" class="hidden"><span class="sw steer"></span>steered</span>
-        <span id="legPerf" class="hidden"><span class="sw perf"></span>performance</span>
-        <span id="legOracle" class="hidden"><span class="sw" style="border-top-color:var(--good);border-top-style:dashed"></span>oracle</span>
+        <span id="legPerf" class="hidden"><span class="sw perf"></span>live performance</span>
+        <span id="legOracle" class="hidden"><span class="sw" style="border-top-color:var(--good);border-top-style:dashed"></span>oracle's reading</span>
       </div>
       <div class="scrub">
         <button id="replayBtn" class="quiet" type="button" title="Replay the posterior converging" style="padding:4px 8px">▶</button>
@@ -302,7 +307,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
       <div style="display:flex;gap:10px;align-items:center">
         <canvas id="portraitB" class="portrait" aria-hidden="true"></canvas>
         <div>
-          <span class="t">PROGRAM vs PERFORMANCE</span>
+          <span class="t">PROFILE vs PERFORMANCE</span>
           <div id="sideMood" style="font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-top:3px">listening</div>
         </div>
       </div>
@@ -736,7 +741,7 @@ function renderRadarInto(svg,snap,opts={}){
   for(let ring=1;ring<=5;ring++){
     const r=R*ring/5;
     out+=`<circle cx="${CX}" cy="${CY}" r="${r}" fill="none" stroke="var(--line)" stroke-width="${ring===5?1.6:1}"/>`;
-    if(!small&&ring>1)out+=`<text x="${CX+5}" y="${CY-r+15}" font-size="13" fill="var(--muted)" font-family="ui-monospace,monospace">${ring}</text>`;
+    if(!small&&ring>1)out+=`<text x="${CX+6}" y="${CY+r-6}" font-size="13" fill="var(--muted)" font-family="ui-monospace,monospace">${ring}</text>`;
   }
   AXES.forEach((a,i)=>{
     const[x,y]=ptAt(i,5);
@@ -824,7 +829,7 @@ function renderChrome(){
     $('#status').textContent=STATE.audit?`${STATE.audit.turnCount} turns · ${STATE.audit.targetWords} target words`:'paste a transcript';
   }else if(STATE.view==='figure'){
     p.textContent='CHAT';p.disabled=false;
-    n.textContent=STATE.editMode?'drag an axis on the radar to steer the program':'the radar is the figure’s program — CHAT performs it';
+    n.textContent=STATE.editMode?'drag an axis on the radar to steer who they are':'this is their profile, read from their own words — CHAT lets you meet them';
     $('#status').textContent=`${STATE.figureName} · ${STATE.fig.evidence.length} evidence events${Object.keys(STATE.steer).length?' · steered':''}`;
   }else if(STATE.view==='models'){
     $('#status').textContent='connect a model';
@@ -895,7 +900,7 @@ function renderFigure(){
   $('#figMyth').textContent=STATE.llmMeta&&STATE.llmMeta.narrative
     ?`${gapLine} ORACLE: ${STATE.llmMeta.title?STATE.llmMeta.title+' — ':''}${STATE.llmMeta.narrative}`
     :gapLine;
-  $('#scrubLabel').textContent=`turn ${STATE.scrubIdx}/${STATE.fig.snapshots.length-1}`;
+  $('#scrubLabel').textContent=`passage ${STATE.scrubIdx} of ${STATE.fig.snapshots.length-1}`;
   $('#gapsBtn').textContent=`MYTH GAP${gaps.length?' ('+gaps.length+')':''}`;
   $('#legSteer').classList.toggle('hidden',!Object.keys(STATE.steer).length);
   $('#legPerf').classList.toggle('hidden',!STATE.perfActive);
@@ -922,7 +927,7 @@ $('#replayBtn').addEventListener('click',()=>{
     renderRadarInto($('#radarSvg'),snap);
     STATE.scrubIdx=Math.round(p);
     $('#scrubber').value=String(STATE.scrubIdx);
-    $('#scrubLabel').textContent=`turn ${STATE.scrubIdx}/${N}`;
+    $('#scrubLabel').textContent=`passage ${STATE.scrubIdx} of ${N}`;
     if(p<N)replayRAF=requestAnimationFrame(step);
     else{replayRAF=null;STATE.scrubIdx=N;renderFigure()}
   };
@@ -1490,7 +1495,7 @@ function enterChat(){
   renderDrift();
   if(!$('#prose').querySelector('.programNote')){
     const pn=document.createElement('div');pn.className='programNote';
-    pn.innerHTML=`<strong>${esc(STATE.figureName)}</strong> — a fictional performance compiled from a recorded conversation. The radar is the program${Object.keys(STATE.steer).length?', as steered':''}. Two windows run at once: the <strong>generator</strong> performs the program, and after every reply the <strong>judge</strong> re-measures the model of the person — the update is printed under each reply, and with FEEDBACK on the verdict steers the next turn.`;
+    pn.innerHTML=`<strong>${esc(STATE.figureName)}</strong> — a fictional performance compiled from their own words. The conversation comes first; a quiet judge listens along, and the small notes between turns say what it heard (tap one for the numbers). Generated speech is performance, not testimony.`;
     $('#prose').prepend(pn);
   }
   setTimeout(()=>$('#visitorText').focus(),0);
@@ -1529,11 +1534,12 @@ function judgeReply(text){
 function addJudgeNote(entry){
   const d=document.createElement('div');
   d.className='judgeNote';
-  const deltaTxt=entry.deltas.length
-    ?entry.deltas.slice(0,4).map(x=>`${x.abbr} ${x.from.toFixed(1)}→${x.to.toFixed(1)}<span class="${x.d>=0?'up':'down'}">${x.d>=0?'▲':'▼'}</span>`).join(' · ')
-    :'no marker evidence — model unchanged';
-  const w=entry.drift;
-  d.innerHTML=`<span class="jTag">JUDGE</span>${deltaTxt} · ${entry.events.length} evidence · played as ${entry.direction.emo.toUpperCase()}${w&&Math.abs(w.d)>=.6?` · drift <span class="down">${w.d>0?'+':''}${w.d.toFixed(1)} ${w.abbr}</span>`:''}`;
+  d.title='The judge re-measured the model of the person from this reply — tap for the numbers.';
+  const moved=entry.deltas.slice(0,3).map(x=>x.label.toLowerCase());
+  const line=moved.length
+    ?`the reading moved on ${moved.join(', ')}`
+    :'nothing new to read in this reply';
+  d.innerHTML=`<span class="jTag">⟡ played as ${esc(entry.direction.emo)}</span> · ${line}`;
   d.addEventListener('click',()=>openJudgeSheet(entry.idx));
   entry.noteEl=d;
   $('#prose').appendChild(d);
@@ -1563,7 +1569,7 @@ function buildFeedback(){
   const text=`JUDGE FEEDBACK (sensor → generator, do not mention this): your last reply measured ${w.label.toLowerCase()} at ${STATE.perf.theta[w.k].toFixed(1)} against the program's ${eff[w.k].toFixed(1)} — you are ${w.d>0?'overplaying':'underplaying'} it by ${Math.abs(w.d).toFixed(1)}. In your next reply, ${w.d>0?'pull back toward':'lean further into'} the program on this axis while staying in character.`;
   last.fedBack=text;
   if(last.noteEl&&!last.noteEl.querySelector('.jFb')){
-    const s=document.createElement('span');s.className='jFb';s.textContent='→ verdict fed back into the generator';
+    const s=document.createElement('span');s.className='jFb';s.textContent='· fed back';
     last.noteEl.appendChild(s);
   }
   return text;
@@ -1614,15 +1620,15 @@ function renderDrift(){
     return;
   }
   if(worst&&Math.abs(worst.d)>=.6){
-    noteEl.innerHTML=`Performance drifting <b>${worst.d>0?'+':''}${worst.d.toFixed(1)}</b> on ${worst.label.toLowerCase()} — the model is ${worst.d>0?'overplaying':'underplaying'} the program.`;
-    chip.innerHTML=`drift <b>${worst.d>0?'+':''}${worst.d.toFixed(1)} ${worst.abbr}</b>`;
+    noteEl.innerHTML=`The performance is ${worst.d>0?'overplaying':'underplaying'} <b>${worst.label.toLowerCase()}</b> by ${Math.abs(worst.d).toFixed(1)}.`;
+    chip.innerHTML=`${worst.d>0?'overplaying':'underplaying'} <b>${worst.label.toLowerCase()}</b>`;
   }else{
-    noteEl.textContent='Performance is holding the program so far.';
-    chip.textContent='holding program';
+    noteEl.textContent='The performance is holding the profile so far.';
+    chip.textContent='true to the profile';
   }
 }
 $('#radarPeekBtn').addEventListener('click',()=>{
-  openSheet('PROGRAM vs PERFORMANCE',`<svg id="sheetRadar" viewBox="0 0 720 552" style="width:100%;height:auto"></svg><div class="notice" id="sheetDrift"></div>`);
+  openSheet('PROFILE vs PERFORMANCE',`<svg id="sheetRadar" viewBox="0 0 720 552" style="width:100%;height:auto"></svg><div class="notice" id="sheetDrift"></div>`);
   renderRadarInto($('#sheetRadar'),currentSnap(),{small:true});
   $('#sheetDrift').innerHTML=$('#driftNote').innerHTML;
 });
