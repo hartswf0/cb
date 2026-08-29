@@ -86,7 +86,7 @@ body[data-view="chat"] #actionBar,body[data-view="models"] #actionBar{display:no
 #legendRow .sw.band{height:9px;border:0;background:color-mix(in srgb,var(--ink) 14%,transparent)}
 #legendRow .sw.steer{border-top-color:var(--blue)}
 #legendRow .sw.perf{border-top-color:var(--bad);border-top-style:dotted}
-.scrub{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;margin-top:7px}
+.scrub{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;margin-top:7px}
 .scrub input[type=range]{width:100%;accent-color:var(--ink);height:26px}
 .scrub .t{font-size:10px;color:var(--muted);white-space:nowrap}
 .cardBtns{display:flex;gap:0;margin-top:3px;align-items:center;flex-wrap:wrap}
@@ -231,6 +231,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
         <span id="legPerf" class="hidden"><span class="sw perf"></span>performance</span>
       </div>
       <div class="scrub">
+        <button id="replayBtn" class="quiet" type="button" title="Replay the posterior converging" style="padding:4px 8px">▶</button>
         <input id="scrubber" type="range" min="0" max="0" step="1" value="0" aria-label="Evidence scrubber">
         <span class="t" id="scrubLabel"></span>
       </div>
@@ -625,19 +626,25 @@ function effectiveDims(){
 }
 function renderRadarInto(svg,snap,opts={}){
   const small=!!opts.small;
+  const perfT=opts.perfTheta||STATE.perf.theta;
   if(opts.tiny){
     let t=`<circle cx="${CX}" cy="${CY}" r="${R+8}" fill="none" stroke="var(--line)" stroke-width="8"/>`;
     t+=`<polygon points="${poly(k=>snap.shown.theta[k])}" fill="var(--ink)" opacity=".16"/>`;
     t+=`<polygon points="${poly(k=>snap.shown.theta[k])}" fill="none" stroke="var(--ink)" stroke-width="16"/>`;
     if(Object.keys(STATE.steer).length){const eff=effectiveDims();t+=`<polygon points="${poly(k=>eff[k])}" fill="none" stroke="var(--blue)" stroke-width="16"/>`}
-    if(STATE.perfActive)t+=`<polygon points="${poly(k=>STATE.perf.theta[k])}" fill="none" stroke="var(--bad)" stroke-width="16" stroke-dasharray="30,26"/>`;
+    if(STATE.perfActive)t+=`<polygon points="${poly(k=>perfT[k])}" fill="none" stroke="var(--bad)" stroke-width="16" stroke-dasharray="30,26"/>`;
     svg.innerHTML=t;return;
   }
-  let out='';
+  /* the sheet under the instrument: the halfworld's ruled ground, clipped to the disc */
+  const clipId='rg'+(svg.id||'x');
+  let out=`<defs><clipPath id="${clipId}"><circle cx="${CX}" cy="${CY}" r="${R}"/></clipPath></defs>`;
+  out+=`<g clip-path="url(#${clipId})" stroke="var(--ink)" stroke-width="1" opacity=".055">`;
+  for(let y=CY-R;y<=CY+R;y+=13)out+=`<line x1="${CX-R}" y1="${y}" x2="${CX+R}" y2="${y}"/>`;
+  out+=`</g>`;
   for(let ring=1;ring<=5;ring++){
     const r=R*ring/5;
-    out+=`<circle cx="${CX}" cy="${CY}" r="${r}" fill="none" stroke="var(--line)" stroke-width="1"/>`;
-    if(!small&&ring>1)out+=`<text x="${CX+5}" y="${CY-r+14}" font-size="12" fill="var(--muted)" font-family="ui-monospace,monospace">${ring}</text>`;
+    out+=`<circle cx="${CX}" cy="${CY}" r="${r}" fill="none" stroke="var(--line)" stroke-width="${ring===5?1.6:1}"/>`;
+    if(!small&&ring>1)out+=`<text x="${CX+5}" y="${CY-r+15}" font-size="13" fill="var(--muted)" font-family="ui-monospace,monospace">${ring}</text>`;
   }
   AXES.forEach((a,i)=>{
     const[x,y]=ptAt(i,5);
@@ -651,8 +658,8 @@ function renderRadarInto(svg,snap,opts={}){
       const s=snap.shown,t=snap.told;
       const vTxt=STATE.steer[a.k]!=null?STATE.steer[a.k].toFixed(1):(s.n[a.k]?s.theta[a.k].toFixed(1):(t.n[a.k]?t.theta[a.k].toFixed(1):'·'));
       out+=`<g class="axG" data-axis="${a.k}" style="cursor:pointer">
-        <text x="${lx}" y="${ly-2}" text-anchor="${anchor}" font-size="21" font-weight="${sel?'800':'700'}" font-family="ui-monospace,monospace" fill="${sel?'var(--warn)':'var(--ink)'}">${a.abbr}</text>
-        <text x="${lx}" y="${ly+17}" text-anchor="${anchor}" font-size="15" font-family="ui-monospace,monospace" fill="${STATE.steer[a.k]!=null?'var(--blue)':'var(--muted)'}">${vTxt}</text>
+        <text x="${lx}" y="${ly-2}" text-anchor="${anchor}" font-size="22" font-weight="${sel?'800':'700'}" font-family="ui-monospace,monospace" fill="${sel?'var(--warn)':'var(--ink)'}">${a.abbr}</text>
+        <text x="${lx}" y="${ly+18}" text-anchor="${anchor}" font-size="16" font-family="ui-monospace,monospace" fill="${STATE.steer[a.k]!=null?'var(--blue)':'var(--muted)'}">${vTxt}</text>
         <rect x="${lx-(anchor==='end'?62:anchor==='middle'?31:0)}" y="${ly-22}" width="62" height="44" fill="transparent"/>
       </g>`;
     }
@@ -661,8 +668,8 @@ function renderRadarInto(svg,snap,opts={}){
   if(STATE.figureA&&!small)out+=`<polygon points="${poly(k=>STATE.figureA.shown[k])}" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="2,4"/>`;
   out+=`<path d="${bandPath(snap.shown.theta,snap.shown.n)}" fill="var(--ink)" opacity=".12" fill-rule="evenodd"/>`;
   out+=`<polygon points="${poly(k=>snap.shown.theta[k])}" fill="var(--ink)" opacity=".07"/>`;
-  out+=`<polygon points="${poly(k=>snap.shown.theta[k])}" fill="none" stroke="var(--ink)" stroke-width="2.5"/>`;
-  out+=`<polygon points="${poly(k=>snap.told.theta[k])}" fill="none" stroke="var(--warn)" stroke-width="2.5" stroke-dasharray="7,5"/>`;
+  out+=`<polygon points="${poly(k=>snap.shown.theta[k])}" fill="none" stroke="var(--ink)" stroke-width="3"/>`;
+  out+=`<polygon points="${poly(k=>snap.told.theta[k])}" fill="none" stroke="var(--warn)" stroke-width="2.6" stroke-dasharray="7,5"/>`;
   if(STATE.llmDims)out+=`<polygon points="${poly(k=>STATE.llmDims[k])}" fill="none" stroke="var(--good)" stroke-width="2" stroke-dasharray="9,4,2,4"/>`;
   if(Object.keys(STATE.steer).length){
     const eff=effectiveDims();
@@ -674,12 +681,17 @@ function renderRadarInto(svg,snap,opts={}){
     });
   }
   if(STATE.perfActive){
-    out+=`<polygon points="${poly(k=>STATE.perf.theta[k])}" fill="none" stroke="var(--bad)" stroke-width="2.2" stroke-dasharray="3,4"/>`;
+    out+=`<polygon points="${poly(k=>perfT[k])}" fill="none" stroke="var(--bad)" stroke-width="2.4" stroke-dasharray="3,4"/>`;
     AXES.forEach((a,i)=>{
       if(!STATE.perf.n[a.k])return;
-      const[x,y]=ptAt(i,STATE.perf.theta[a.k]);
+      const[x,y]=ptAt(i,perfT[a.k]);
       out+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="var(--bad)"/>`;
     });
+  }
+  /* pulse rings on the axes the judge just moved */
+  if(opts.pulses)for(const pu of opts.pulses){
+    const[x,y]=ptAt(pu.i,perfT[AXES[pu.i].k]);
+    out+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(5+pu.k*30).toFixed(1)}" fill="none" stroke="var(--bad)" stroke-width="2" opacity="${((1-pu.k)*.6).toFixed(2)}"/>`;
   }
   AXES.forEach((a,i)=>{
     const[x,y]=ptAt(i,snap.shown.theta[a.k]);
@@ -780,6 +792,31 @@ function renderFigure(){
   renderChrome();
 }
 $('#scrubber').addEventListener('input',e=>{STATE.scrubIdx=Number(e.target.value)||0;renderFigure()});
+/* REPLAY: play the posterior converging, interpolating between snapshots */
+let replayRAF=null;
+function lerpChan(a,b,k){
+  return{theta:Object.fromEntries(AXES.map(x=>[x.k,a.theta[x.k]+(b.theta[x.k]-a.theta[x.k])*k])),
+         n:Object.fromEntries(AXES.map(x=>[x.k,k<.5?a.n[x.k]:b.n[x.k]]))};
+}
+$('#replayBtn').addEventListener('click',()=>{
+  if(!STATE.fig)return;
+  if(replayRAF){cancelAnimationFrame(replayRAF);replayRAF=null}
+  const snaps=STATE.fig.snapshots,N=snaps.length-1;
+  if(N<1)return;
+  const dur=Math.min(3.2,0.5+0.45*N),t0=performance.now();
+  const step=now=>{
+    const p=clamp((now-t0)/1000/dur,0,1)*N;
+    const i=Math.min(N-1,Math.floor(p)),k=p-i;
+    const snap={shown:lerpChan(snaps[i].shown,snaps[i+1].shown,k),told:lerpChan(snaps[i].told,snaps[i+1].told,k)};
+    renderRadarInto($('#radarSvg'),snap);
+    STATE.scrubIdx=Math.round(p);
+    $('#scrubber').value=String(STATE.scrubIdx);
+    $('#scrubLabel').textContent=`turn ${STATE.scrubIdx}/${N}`;
+    if(p<N)replayRAF=requestAnimationFrame(step);
+    else{replayRAF=null;STATE.scrubIdx=N;renderFigure()}
+  };
+  replayRAF=requestAnimationFrame(step);
+});
 $('#backBtn').addEventListener('click',()=>{
   if(STATE.view==='chat'||STATE.view==='models')show(STATE.fig?'figure':'ingest');
   else show('ingest');
@@ -1113,7 +1150,8 @@ function faceSpecFor(name){
 }
 const PUPPETS=[];
 function makePuppet(canvas,name){
-  const p={canvas,spec:faceSpecFor(name),
+  const off=document.createElement('canvas');off.width=off.height=240;
+  const p={canvas,off,spec:faceSpecFor(name),
     cur:Object.fromEntries(FACE_PARAMS.map(k=>[k,0])),
     tgt:Object.fromEntries(FACE_PARAMS.map(k=>[k,0])),
     speaking:false,blinkAt:performance.now()/1000+1.5+rnd2(seedOf(name),77)*3,
@@ -1121,6 +1159,46 @@ function makePuppet(canvas,name){
   const at=PUPPETS.findIndex(x=>x.canvas===canvas);
   if(at>=0)PUPPETS[at]=p;else PUPPETS.push(p);
   return p;
+}
+/* ---- THE INK LAW + dotify: the halfworld POST pass, ported from
+   engine/halfworld-engine.mjs. The face is drawn in solid tone on a fixed
+   light palette offscreen; every visible pixel then passes through the same
+   ordered halftone: an S-curve about MID pushes fills toward paper and
+   contour toward solid ink, dots stamp by darkness over a faint ruled sheet. */
+const INKLAW={floor:.20,mid:.58,k:2.60,
+  grade(d){const{mid,k}=this;return d<mid?mid*Math.pow(d/mid,k):1-(1-mid)*Math.pow((1-d)/(1-mid),k)}};
+const OFF_PALETTE={ink:'#181814',paper:'#fffdf7',skin:'#e0dacd',hair:'#4e4b46'};
+function inkRGBA(ink,a){
+  const m=String(ink).match(/(\d+)[, ]+(\d+)[, ]+(\d+)/);
+  return m?`rgba(${m[1]},${m[2]},${m[3]},${a})`:`rgba(0,0,0,${a})`;
+}
+function dotify(dstCanvas,srcCanvas,ink,paper){
+  const dpr=Math.min(2,devicePixelRatio||1);
+  const w=dstCanvas.clientWidth||56,h=dstCanvas.clientHeight||56;
+  if(dstCanvas.width!==w*dpr||dstCanvas.height!==h*dpr){dstCanvas.width=w*dpr;dstCanvas.height=h*dpr}
+  const CW=dstCanvas.width,CH=dstCanvas.height;
+  const g=dstCanvas.getContext('2d');
+  const SW=srcCanvas.width,SH=srcCanvas.height;
+  const src=srcCanvas.getContext('2d').getImageData(0,0,SW,SH).data;
+  const s=Math.min(CW/SW,CH/SH),ox=(CW-SW*s)/2,oy=(CH-SH*s)/2;
+  const cell=Math.max(2.4,CW/36);
+  g.setTransform(1,0,0,1,0,0);
+  g.fillStyle=paper;g.fillRect(0,0,CW,CH);
+  /* the sheet: faint ruled lines, post.bg==="lines" */
+  g.strokeStyle=inkRGBA(ink,.08);g.lineWidth=Math.max(1,dpr*.55);g.beginPath();
+  for(let y=cell*.45;y<CH;y+=Math.max(3,cell*.72)){g.moveTo(0,y);g.lineTo(CW,y)}
+  g.stroke();
+  g.fillStyle=ink;
+  for(let y=cell/2;y<=CH;y+=cell){
+    const sy=Math.max(0,Math.min(SH-1,Math.floor((y-oy)/s)));
+    for(let x=cell/2;x<=CW;x+=cell){
+      const sx=Math.max(0,Math.min(SW-1,Math.floor((x-ox)/s))),i=(sy*SW+sx)*4;
+      const lum=(src[i]*.299+src[i+1]*.587+src[i+2]*.114)/255;let d=1-lum;
+      if(d<INKLAW.floor)continue;
+      d=INKLAW.grade(d);
+      g.beginPath();g.arc(x,y,Math.pow(d,.9)*cell*.62*1.05,0,7);g.fill();
+    }
+  }
 }
 function setPerformance(emo,k,speaking){
   STATE.mood=emo;
@@ -1153,17 +1231,18 @@ function directPerformance(evts){
   if(v<0)return{emo:AXIS_EMO_NEG[best]||'guarded',k};
   return{emo:(AXIS_EMO[best]||['guarded'])[mag>=2.2?0:1],k};
 }
-/* draw one frame of one puppet, in the page's own paper/ink */
-function drawPuppet(p,t,ink,paper,skin,hair){
-  const c=p.canvas,dpr=Math.min(2,devicePixelRatio||1);
-  const w=c.clientWidth||56,h=c.clientHeight||56;
-  if(c.width!==w*dpr||c.height!==h*dpr){c.width=w*dpr;c.height=h*dpr}
-  const g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+/* draw one frame of one puppet in solid tone on the offscreen sheet;
+   the dotify pass prints it */
+function drawPuppet(p,t){
+  const c=p.off,{ink,paper,skin,hair}=OFF_PALETTE;
+  const w=c.width,h=c.height;
+  const g=c.getContext('2d');g.setTransform(1,0,0,1,0,0);
+  g.fillStyle=paper;g.fillRect(0,0,w,h);
   const st=p.cur,sp=p.spec;
   const R=Math.min(w,h)*0.42;
   const breathe=Math.sin(t*0.9+sp.seed%7)*0.012;
-  const cx=w/2+st.headYaw*R*0.14,cy=h/2+R*0.06+st.headPitch*R*0.16+breathe*R;
-  g.save();g.translate(w/2,h/2);g.rotate(st.headRoll*0.22);g.translate(-w/2,-h/2);
+  const cx=w/2+st.headYaw*R*0.20,cy=h/2+R*0.06+st.headPitch*R*0.24+breathe*R;
+  g.save();g.translate(w/2,h/2);g.rotate(st.headRoll*0.32);g.translate(-w/2,-h/2);
   const lw=Math.max(1.1,R*0.055);
   /* one silhouette: cranium fixed, mandible rides the jaw */
   let talk=0;
@@ -1267,7 +1346,6 @@ function puppetLoop(now){
   if(document.hidden||STATE.view!=='chat'||!PUPPETS.length)return;
   const t=now/1000,dt=Math.min(0.08,t-(puppetLast||t));puppetLast=t;
   const ink=resolveToken('--ink',t),paper=resolveToken('--paper',t);
-  const skin=resolveToken('--soft',t),hair=resolveToken('--muted',t);
   for(const p of PUPPETS){
     if(!p.canvas.isConnected)continue;
     for(const k of FACE_PARAMS){
@@ -1275,8 +1353,10 @@ function puppetLoop(now){
       const rate=Math.abs(tgt)>Math.abs(cur)?dt/0.35:dt/0.5;
       p.cur[k]=cur+(tgt-cur)*Math.min(1,rate*3);
     }
-    drawPuppet(p,t,ink,paper,skin,hair);
+    drawPuppet(p,t);
+    dotify(p.canvas,p.off,ink,paper);
   }
+  tickRadarAnim(t);
 }
 requestAnimationFrame(puppetLoop);
 
@@ -1381,6 +1461,30 @@ function driftFinding(){
   }
   return worst;
 }
+/* the judge's update ANIMATES the instrument: the red performance polygon
+   tweens to its new shape over ~0.7s with pulse rings on the axes that moved */
+const RANIM={active:false,t0:0,from:null,to:null,axes:[]};
+const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
+function startRadarAnim(entry){
+  RANIM.from=Object.fromEntries(AXES.map(a=>{
+    const d=entry.deltas.find(x=>x.k===a.k);
+    return[a.k,d?d.from:STATE.perf.theta[a.k]];
+  }));
+  RANIM.to={...STATE.perf.theta};
+  RANIM.axes=entry.deltas.map(d=>AXES.findIndex(x=>x.k===d.k)).filter(i=>i>=0);
+  RANIM.t0=performance.now()/1000;RANIM.active=true;
+}
+function tickRadarAnim(t){
+  if(!RANIM.active)return;
+  const k=smooth((t-RANIM.t0)/0.7);
+  RANIM.disp=Object.fromEntries(AXES.map(a=>[a.k,RANIM.from[a.k]+(RANIM.to[a.k]-RANIM.from[a.k])*k]));
+  RANIM.lastDisp=RANIM.disp;
+  const pulses=RANIM.axes.map(i=>({i,k}));
+  const snap=currentSnap();
+  const side=$('#sideRadar');if(side&&side.isConnected)renderRadarInto(side,snap,{small:true,perfTheta:RANIM.disp,pulses});
+  const strip=$('#stripRadar');if(strip&&strip.isConnected)renderRadarInto(strip,snap,{tiny:true,perfTheta:RANIM.disp});
+  if(k>=1){RANIM.active=false;renderDrift()}
+}
 function renderDrift(){
   renderRadarInto($('#sideRadar'),currentSnap(),{small:true});
   renderRadarInto($('#stripRadar'),currentSnap(),{tiny:true});
@@ -1429,6 +1533,7 @@ $('#composer').addEventListener('submit',async e=>{
     addJudgeNote(entry);
     setPerformance(entry.direction.emo,entry.direction.k,false);
     renderDrift();
+    startRadarAnim(entry);
   }catch(err){
     pending.remove();
     setPerformance(STATE.mood in EMOTIONS?STATE.mood:'guarded',.35,false);
