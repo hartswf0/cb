@@ -229,6 +229,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
         <span><span class="sw band"></span>±confidence</span>
         <span id="legSteer" class="hidden"><span class="sw steer"></span>steered</span>
         <span id="legPerf" class="hidden"><span class="sw perf"></span>performance</span>
+        <span id="legOracle" class="hidden"><span class="sw" style="border-top-color:var(--good);border-top-style:dashed"></span>oracle</span>
       </div>
       <div class="scrub">
         <button id="replayBtn" class="quiet" type="button" title="Replay the posterior converging" style="padding:4px 8px">▶</button>
@@ -238,6 +239,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
       <div class="cardBtns">
         <button id="editBtn" class="quiet" type="button" aria-pressed="false">STEER</button>
         <button id="gapsBtn" class="quiet" type="button">MYTH GAP</button>
+        <button id="oracleBtn" class="quiet" type="button" title="Ask the connected model to read the text: dims with passage citations, and an invented myth">ORACLE</button>
         <button id="exportBtn" class="quiet" type="button">EXPORT</button>
         <span id="cardNote"></span>
       </div>
@@ -611,30 +613,57 @@ function snapshotOf(shown,told){
   return{shown:{theta:{...shown.theta},n:{...shown.n}},told:{theta:{...told.theta},n:{...told.n}}};
 }
 
-/* ---------- archetypes & myth gaps ---------- */
-const ARCHE={
- openness:{hi:'The Wonderer',lo:'The Settled'},
- conscientious:{hi:'The Keeper of Lists',lo:'The Drifter'},
- extraversion:{hi:'The Kitchen-Table Orator',lo:'The Quiet One'},
- agreeableness:{hi:'The Peacemaker',lo:'The Contrarian'},
- neuroticism:{hi:'The Vigil',lo:'The Unshaken'},
- logic:{hi:'The Reckoner',lo:'The Intuitive'},
- empathy:{hi:'The Tender',lo:'The Removed'},
- authority:{hi:'The Steward',lo:'The Deferent'},
- risk:{hi:'The Voyager',lo:'The Hearthbound'},
- uncertainty:{hi:'The Wavering',lo:'The Certain'},
- decisiveness:{hi:'The Anvil',lo:'The Deliberator'}
+/* ---------- mythic archetypes & myth gaps ----------
+   Not a fixed table: a compositor. Each axis carries a small mythos of nouns
+   and epithets; the strongest axis names the figure, the second crowns it,
+   and the figure's own name seeds the draw — so every ingested voice earns
+   its own two-part mythic title, infinitely varied and still deterministic. */
+const MYTHOS={
+ openness:{hi:{n:['Wonderer','Dreamseer','Far-Gazer'],e:['Wonder-Struck','Dream-Fed','Sky-Curious']},
+           lo:{n:['Settler','Hearthkeeper'],e:['Plain-Spoken','Earth-Bound']}},
+ conscientious:{hi:{n:['Keeper of Lists','Warden of Days','Ledger-Bearer'],e:['Duty-Bound','Careful-Handed','Iron-Scheduled']},
+           lo:{n:['Drifter','Loose Thread'],e:['Unrostered','Wind-Kept']}},
+ extraversion:{hi:{n:['Kitchen-Table Orator','Feast-Bringer','Crowd-Kindler'],e:['Bright-Voiced','Laughing','Door-Opening']},
+           lo:{n:['Quiet One','Still Water'],e:['Soft-Spoken','Inward-Turned']}},
+ agreeableness:{hi:{n:['Peacemaker','Bridge-Builder','Gentle Hand'],e:['Kind-Handed','Peace-Woven','Yes-Saying']},
+           lo:{n:['Contrarian','Flint'],e:['Sharp-Tongued','Unyielding']}},
+ neuroticism:{hi:{n:['Vigil','Night-Watcher','Grief-Carrier'],e:['Grief-Tempered','Storm-Hearted','Trembling']},
+           lo:{n:['Unshaken','Calm Water'],e:['Still-Hearted','Unmoved']}},
+ logic:{hi:{n:['Reckoner','Chain-Forger','Because-Sayer'],e:['Clear-Reasoned','Cause-Tracing']},
+           lo:{n:['Intuitive','Felt-Path Walker'],e:['Gut-Led']}},
+ empathy:{hi:{n:['Tender','Wound-Reader','Heart-Witness'],e:['Sorrow-Seeing','Open-Hearted']},
+           lo:{n:['Removed','Far Shore'],e:['Cool-Eyed']}},
+ authority:{hi:{n:['Steward','Room-Holder','Command-Voice'],e:['Iron-Worded','Table-Ruling']},
+           lo:{n:['Deferent','Low-Bower'],e:['Yielding']}},
+ risk:{hi:{n:['Voyager','Leap-Taker','Bag-Packer'],e:['Storm-Sailing','Chance-Riding','Threshold-Crossing']},
+           lo:{n:['Hearthbound','Harbor-Keeper'],e:['Safe-Harbored']}},
+ uncertainty:{hi:{n:['Fog-Walker','Maybe-Sayer','Wavering'],e:['Hedge-Wreathed','Half-Certain']},
+           lo:{n:['Anchor','Certain'],e:['Doubt-Proof','Flat-Sure']}},
+ decisiveness:{hi:{n:['Anvil','Die-Caster','Then-and-There'],e:['Swift-Struck','Never-Looking-Back']},
+           lo:{n:['Deliberator','Scale-Tipper'],e:['Slow-Choosing']}}
 };
 function blended(fig,k){
   const ns=fig.shown.n[k],nt=fig.told.n[k];
   if(!ns&&!nt)return 3;
   return (fig.shown.theta[k]*ns+fig.told.theta[k]*nt)/((ns+nt)||1);
 }
-function deriveArchetypes(fig){
+function rankedDeviations(fig){
   return AXES.map(a=>{
     const v=blended(fig,a.k),n=fig.shown.n[a.k]+fig.told.n[a.k];
-    return{k:a.k,label:a.label,dev:v-3,n,name:(v>=3?ARCHE[a.k].hi:ARCHE[a.k].lo)};
-  }).filter(d=>d.n>0&&Math.abs(d.dev)>=.35).sort((a,b)=>Math.abs(b.dev)-Math.abs(a.dev)).slice(0,3);
+    return{k:a.k,label:a.label,dev:v-3,n};
+  }).filter(d=>d.n>0&&Math.abs(d.dev)>=.3).sort((a,b)=>Math.abs(b.dev)-Math.abs(a.dev));
+}
+function pickSeeded(list,seed,i){return list[Math.floor(rnd2(seed,i)*list.length)%list.length]}
+function deriveArchetypes(fig){
+  const devs=rankedDeviations(fig);
+  if(!devs.length)return[{name:'The Unwritten'}];
+  const seed=seedOf(STATE.figureName||'figure');
+  const side=d=>MYTHOS[d.k][d.dev>=0?'hi':'lo'];
+  const noun=pickSeeded(side(devs[0]).n,seed,3);
+  const ep=devs[1]?pickSeeded(side(devs[1]).e,seed,7):'';
+  const out=[{name:`The ${ep?ep+' ':''}${noun}`}];
+  if(devs[2])out.push({name:pickSeeded(side(devs[2]).n,seed,11)});
+  return out;
 }
 function mythGaps(fig){
   return AXES.map(a=>{
@@ -839,13 +868,17 @@ function renderFigure(){
   const arch=deriveArchetypes(STATE.fig);
   $('#figName').textContent=STATE.figureName+(arch.length?' — '+arch.map(d=>d.name).join(' · '):'');
   const gaps=[...mythGaps(STATE.fig),...contrastFindings(STATE.fig)];
-  $('#figMyth').textContent=gaps.length
+  const gapLine=gaps.length
     ?(gaps[0].line||`Tells ${gaps[0].told.toFixed(1)} but shows ${gaps[0].shown.toFixed(1)} on ${gaps[0].label.toLowerCase()}.`)
     :'Told and shown channels agree — the figure speaks the way it says it is.';
+  $('#figMyth').textContent=STATE.llmMeta&&STATE.llmMeta.narrative
+    ?`${gapLine} ORACLE: ${STATE.llmMeta.title?STATE.llmMeta.title+' — ':''}${STATE.llmMeta.narrative}`
+    :gapLine;
   $('#scrubLabel').textContent=`turn ${STATE.scrubIdx}/${STATE.fig.snapshots.length-1}`;
   $('#gapsBtn').textContent=`MYTH GAP${gaps.length?' ('+gaps.length+')':''}`;
   $('#legSteer').classList.toggle('hidden',!Object.keys(STATE.steer).length);
   $('#legPerf').classList.toggle('hidden',!STATE.perfActive);
+  $('#legOracle').classList.toggle('hidden',!STATE.llmDims);
   renderChrome();
 }
 $('#scrubber').addEventListener('input',e=>{STATE.scrubIdx=Number(e.target.value)||0;renderFigure()});
@@ -941,6 +974,8 @@ function compileSystem(){
     return `- ${a.k} ${eff[a.k].toFixed(1)}${steered?' (STEERED by operator)':` (confidence ${conf.toFixed(2)})`}${dir?' — '+dir:''}`;
   }).join('\n');
   const arch=deriveArchetypes(STATE.fig).map(d=>d.name).join(' · ')||'none earned yet';
+  const oracleLine=STATE.llmMeta&&STATE.llmMeta.narrative
+    ?`\nORACLE READING: ${STATE.llmMeta.title||''}${STATE.llmMeta.epithet?' ('+STATE.llmMeta.epithet+')':''} — ${STATE.llmMeta.narrative}`:'';
   const gaps=[...mythGaps(STATE.fig),...contrastFindings(STATE.fig)];
   const evidence=STATE.fig.targetTurns.slice(-40).map(t=>`[T${t.i}] ${STATE.figureName}: ${t.text}`).join('\n').slice(-14000);
   STATE.system=`FIGURE CORPS ARCHIVAL PERFORMANCE CONTRACT — CENTAUR FIGURES
@@ -951,7 +986,7 @@ You perform an archive-grounded dramatic figure compiled from one recorded conve
 LATENT PROGRAM (perform these parameters, 1-5; they were inferred from the transcript evidence below)
 ${dimLines}
 
-ARCHETYPES: ${arch}
+ARCHETYPES: ${arch}${oracleLine}
 ${gaps.length?'MYTH TO PLAY: '+gaps[0].line:''}
 
 BOUNDARY
@@ -1163,6 +1198,7 @@ $('#hostedForm').addEventListener('submit',e=>{
     STATE.activeSocketId=sock.id;
     saveHosted();
   }
+  if(STATE.oraclePending){STATE.oraclePending=false;show('figure');runOracle();return}
   enterChat();
 });
 $('#modelBtn').addEventListener('click',openModels);
@@ -1633,6 +1669,63 @@ function openEvidence(k){
     </div>`).join(''):'<div class="notice">No evidence — this axis is the untouched prior with a full-width band.</div>'}`);
   renderRadarInto($('#radarSvg'),snap);
 }
+/* ---------- THE ORACLE: an optional LLM reading through the same provider
+   layer. It scores the dims with passage citations and INVENTS the myth.
+   It is drawn as its own green polygon and quoted as its own voice — it
+   supplements the deterministic estimate and never overwrites it. ---------- */
+async function runOracle(){
+  if(!STATE.fig)return;
+  const sock=activeSocket();
+  if(!sock){STATE.oraclePending=true;openModels();return}
+  $('#cardNote').textContent='the oracle is reading…';
+  const passages=STATE.fig.targetTurns.map(t=>`[T${t.i}] ${t.text}`).join('\n').slice(0,24000);
+  const prompt=`You are the ORACLE of the CENTAUR FIGURES instrument: a mythographer and a careful analyst. Read the numbered passages of one voice. Do NOT infer demographics, politics, health, or any other sensitive attribute.
+Return STRICT JSON only:
+{"dims":{${AXES.map(a=>`"${a.k}":3`).join(',')}},
+ "evidence":{"<axis>":[passage numbers that justify any score away from 3]},
+ "myth":{"title":"an INVENTED two-part mythic archetype for this voice, e.g. The Grief-Tempered Voyager — never a stock label",
+         "archetypes":["2-3 further short mythic names, invented"],
+         "epithet":"a Homeric epithet for this voice, 2-4 hyphenated words",
+         "narrative":"1-2 sentences of mythic framing about how this voice tells its life"},
+ "tone":"one word"}
+All ${AXES.length} dims required, 1-5. Any dim scored away from 3 MUST cite at least one passage. Where the text is silent, leave 3 and cite nothing.
+
+PASSAGES OF ${STATE.figureName}:
+${passages}`;
+  try{
+    const raw=await callSocket(sock,[
+      {role:'system',content:'Return ONLY valid JSON.'},
+      {role:'user',content:prompt}],{temperature:.6});
+    const m=raw.match(/\{[\s\S]*\}/);const payload=JSON.parse(m?m[0]:raw);
+    const dims={};
+    for(const a of AXES)dims[a.k]=clamp(Number(payload.dims?.[a.k]??3)||3,1,5);
+    STATE.llmDims=dims;
+    STATE.llmMeta={
+      title:typeof payload.myth?.title==='string'?payload.myth.title:'',
+      archetypes:Array.isArray(payload.myth?.archetypes)?payload.myth.archetypes.slice(0,3):[],
+      epithet:typeof payload.myth?.epithet==='string'?payload.myth.epithet:'',
+      narrative:typeof payload.myth?.narrative==='string'?payload.myth.narrative:'',
+      tone:payload.tone||'',evidence:payload.evidence||{},model:sock.model};
+    $('#cardNote').textContent='oracle reading drawn in green';
+    renderFigure();compileSystem();
+    openOracleSheet();
+  }catch(err){$('#cardNote').textContent='oracle failed: '+String(err.message).slice(0,80)}
+}
+function openOracleSheet(){
+  const o=STATE.llmMeta;if(!o)return;
+  const snap=currentSnap();
+  openSheet('ORACLE',
+   `<h3>${esc(o.title||'—')}</h3>
+    <p>${esc(o.epithet?o.epithet+' — ':'')}${esc(o.narrative||'')}</p>
+    <div class="notice" style="margin-bottom:8px">${esc((o.archetypes||[]).join(' · '))} · tone: ${esc(o.tone||'—')} · read by ${esc(o.model||'model')}. The green polygon is the oracle's; the ink polygon stays the evidence engine's.</div>
+    ${AXES.map(a=>{
+      const cites=arr(o.evidence?.[a.k]).slice(0,8).map(n=>'[T'+n+']').join(' ');
+      const det=snap.shown.n[a.k]||snap.told.n[a.k]?blended(STATE.fig,a.k).toFixed(1):'·';
+      const dv=STATE.llmDims[a.k];
+      return `<div class="evRow"><b>${a.label}</b> oracle ${dv.toFixed(1)} · engine ${det} ${cites?`<span class="evMeta">${cites}</span>`:dv!==3?'<span class="dirDown">uncited</span>':''}</div>`;
+    }).join('')}`);
+}
+$('#oracleBtn').addEventListener('click',runOracle);
 $('#gapsBtn').addEventListener('click',()=>{
   const gaps=mythGaps(STATE.fig),contrasts=contrastFindings(STATE.fig);
   const parts=[];
