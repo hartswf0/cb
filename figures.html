@@ -705,8 +705,16 @@ function bandPath(theta,nMap){
   return 'M'+outer.map(p=>p.map(x=>x.toFixed(1)).join(',')).join('L')+'Z '+
          'M'+inner.map(p=>p.map(x=>x.toFixed(1)).join(',')).join('L')+'Z';
 }
+/* the figure's PROGRAM, by authority: operator steering, then the oracle's
+   cited readings, then the evidence engine. The LLM is the reader of record;
+   the engine is the honest floor and the offline fallback. */
+function oracleCited(k){
+  return!!(STATE.llmDims&&STATE.llmMeta&&arr(STATE.llmMeta.evidence?.[k]).length);
+}
 function effectiveDims(){
-  return Object.fromEntries(AXES.map(a=>[a.k,STATE.steer[a.k]??Math.round(blended(STATE.fig,a.k)*100)/100]));
+  return Object.fromEntries(AXES.map(a=>[a.k,
+    STATE.steer[a.k]??(oracleCited(a.k)?STATE.llmDims[a.k]:Math.round(blended(STATE.fig,a.k)*100)/100)
+  ]));
 }
 function renderRadarInto(svg,snap,opts={}){
   const small=!!opts.small;
@@ -812,7 +820,7 @@ function renderChrome(){
   if(STATE.view==='ingest'){
     p.textContent='COMPILE';
     p.disabled=!STATE.audit||STATE.audit.level==='bad';
-    n.textContent=STATE.audit?(STATE.audit.level==='bad'?'blocked — '+STATE.audit.issues[0]:'evidence-only inference · nothing is invented'):'';
+    n.textContent=STATE.audit?(STATE.audit.level==='bad'?'blocked — '+STATE.audit.issues[0]:'COMPILE has the oracle (a connected model) read the text; the evidence engine keeps it honest'):'';
     $('#status').textContent=STATE.audit?`${STATE.audit.turnCount} turns · ${STATE.audit.targetWords} target words`:'paste a transcript';
   }else if(STATE.view==='figure'){
     p.textContent='CHAT';p.disabled=false;
@@ -848,9 +856,19 @@ function runAudit(){
 }
 $('#pasteText').addEventListener('input',()=>{clearTimeout(auditTimer);auditTimer=setTimeout(runAudit,180)});
 
-/* ---------- compile & figure view ---------- */
-function compile(){
+/* ---------- compile & figure view ----------
+   COMPILE is a real reading, not a demo: it requires a connected model.
+   The evidence engine lands first (instant, honest floor); the ORACLE then
+   reads the text and its cited dims become the figure's program. */
+async function compile(){
   if(!STATE.audit||STATE.audit.level==='bad')return;
+  await discoverLocal();
+  if(!activeSocket()){
+    STATE.pendingCompile=true;
+    openModels();
+    hostedStatus('COMPILE needs a model: the oracle reads the text. Pick one and press ENTER.','');
+    return;
+  }
   STATE.fig=compileLatentProgram(STATE.turns,STATE.audit.target);
   STATE.figureName=STATE.audit.target;
   STATE.scrubIdx=STATE.fig.snapshots.length-1;
@@ -859,14 +877,17 @@ function compile(){
   STATE.messages=[];STATE.perf=emptyChannel();STATE.perfActive=false;$('#prose').innerHTML='';
   STATE.judgeLog=[];STATE.mood='listening';
   const sc=$('#scrubber');sc.max=String(STATE.fig.snapshots.length-1);sc.value=String(STATE.scrubIdx);
-  discoverLocal();
   show('figure');renderFigure();
+  runOracle({auto:true});
 }
 function renderFigure(){
   const snap=currentSnap();if(!snap)return;
   renderRadarInto($('#radarSvg'),snap);
   const arch=deriveArchetypes(STATE.fig);
-  $('#figName').textContent=STATE.figureName+(arch.length?' — '+arch.map(d=>d.name).join(' · '):'');
+  const title=STATE.llmMeta&&STATE.llmMeta.title
+    ?STATE.llmMeta.title+(arch.length&&arch[0].name!=='The Unwritten'?' · '+arch[0].name:'')
+    :(arch.length?arch.map(d=>d.name).join(' · '):'');
+  $('#figName').textContent=STATE.figureName+(title?' — '+title:'');
   const gaps=[...mythGaps(STATE.fig),...contrastFindings(STATE.fig)];
   const gapLine=gaps.length
     ?(gaps[0].line||`Tells ${gaps[0].told.toFixed(1)} but shows ${gaps[0].shown.toFixed(1)} on ${gaps[0].label.toLowerCase()}.`)
@@ -971,7 +992,10 @@ function compileSystem(){
     const conf=confidence(snap.shown.n[a.k]+snap.told.n[a.k]);
     const steered=STATE.steer[a.k]!=null;
     const dir=dimDirective(a.k,eff[a.k]);
-    return `- ${a.k} ${eff[a.k].toFixed(1)}${steered?' (STEERED by operator)':` (confidence ${conf.toFixed(2)})`}${dir?' — '+dir:''}`;
+    const src=steered?'STEERED by operator'
+      :oracleCited(a.k)?`ORACLE reading, passages ${arr(STATE.llmMeta.evidence[a.k]).slice(0,6).map(n=>'T'+n).join(' ')}`
+      :`evidence engine, confidence ${conf.toFixed(2)}`;
+    return `- ${a.k} ${eff[a.k].toFixed(1)} (${src})${dir?' — '+dir:''}`;
   }).join('\n');
   const arch=deriveArchetypes(STATE.fig).map(d=>d.name).join(' · ')||'none earned yet';
   const oracleLine=STATE.llmMeta&&STATE.llmMeta.narrative
@@ -1198,6 +1222,7 @@ $('#hostedForm').addEventListener('submit',e=>{
     STATE.activeSocketId=sock.id;
     saveHosted();
   }
+  if(STATE.pendingCompile){STATE.pendingCompile=false;compile();return}
   if(STATE.oraclePending){STATE.oraclePending=false;show('figure');runOracle();return}
   enterChat();
 });
@@ -1673,11 +1698,12 @@ function openEvidence(k){
    layer. It scores the dims with passage citations and INVENTS the myth.
    It is drawn as its own green polygon and quoted as its own voice — it
    supplements the deterministic estimate and never overwrites it. ---------- */
-async function runOracle(){
+async function runOracle(opts={}){
   if(!STATE.fig)return;
   const sock=activeSocket();
   if(!sock){STATE.oraclePending=true;openModels();return}
-  $('#cardNote').textContent='the oracle is reading…';
+  $('#cardNote').textContent=`the oracle (${sock.model}) is reading…`;
+  $('#status').textContent=`${STATE.figureName} · oracle reading`;
   const passages=STATE.fig.targetTurns.map(t=>`[T${t.i}] ${t.text}`).join('\n').slice(0,24000);
   const prompt=`You are the ORACLE of the CENTAUR FIGURES instrument: a mythographer and a careful analyst. Read the numbered passages of one voice. Do NOT infer demographics, politics, health, or any other sensitive attribute.
 Return STRICT JSON only:
@@ -1706,10 +1732,14 @@ ${passages}`;
       epithet:typeof payload.myth?.epithet==='string'?payload.myth.epithet:'',
       narrative:typeof payload.myth?.narrative==='string'?payload.myth.narrative:'',
       tone:payload.tone||'',evidence:payload.evidence||{},model:sock.model};
-    $('#cardNote').textContent='oracle reading drawn in green';
+    const cited=AXES.filter(a=>oracleCited(a.k)).length;
+    $('#cardNote').textContent=`oracle read the text — ${cited} axes cited now carry its values`;
     renderFigure();compileSystem();
-    openOracleSheet();
-  }catch(err){$('#cardNote').textContent='oracle failed: '+String(err.message).slice(0,80)}
+    if(!opts.auto)openOracleSheet();
+  }catch(err){
+    $('#cardNote').textContent='oracle failed ('+String(err.message).slice(0,60)+') — the evidence engine stands alone';
+    renderFigure();
+  }
 }
 function openOracleSheet(){
   const o=STATE.llmMeta;if(!o)return;
