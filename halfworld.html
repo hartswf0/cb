@@ -412,10 +412,10 @@ $('#hostedForm').addEventListener('submit',e=>{
 
 /* ================= FIDELITY ENGINE (from figures.html, single channel) ================= */
 const AXES=[
- {k:'openness',label:'openness'},{k:'conscientious',label:'order'},{k:'extraversion',label:'expansiveness'},
- {k:'agreeableness',label:'accord'},{k:'neuroticism',label:'trouble'},{k:'logic',label:'reasoning'},
- {k:'empathy',label:'empathy'},{k:'authority',label:'command'},{k:'risk',label:'daring'},
- {k:'uncertainty',label:'hedging'},{k:'decisiveness',label:'resolve'}
+ {k:'openness',label:'openness',abbr:'OPN'},{k:'conscientious',label:'order',abbr:'CON'},{k:'extraversion',label:'expansiveness',abbr:'EXT'},
+ {k:'agreeableness',label:'accord',abbr:'AGR'},{k:'neuroticism',label:'trouble',abbr:'NEU'},{k:'logic',label:'reasoning',abbr:'LOG'},
+ {k:'empathy',label:'empathy',abbr:'EMP'},{k:'authority',label:'command',abbr:'AUT'},{k:'risk',label:'daring',abbr:'RSK'},
+ {k:'uncertainty',label:'hedging',abbr:'UNC'},{k:'decisiveness',label:'resolve',abbr:'DEC'}
 ];
 const LEX={
  openness:[{rx:/\b(imagine[ds]?|wonder(?:ed|ing)?|curious|dream(?:ed|s|t)?|beautiful|music|mystery|mysterious|strange|discover\w*)\b/gi,dir:1,w:1}],
@@ -449,6 +449,48 @@ function updateProfile(p,evts){
     p.n[ax.k]++;
   }
   return sums;
+}
+/* the radar, in the figures.html idiom: ink = who their text says they are;
+   red dashes = who their speech in this world is making them */
+const RCX=360,RCY=278,RR=196;
+function rPt(i,v){
+  const ang=(i/AXES.length)*Math.PI*2-Math.PI/2;
+  const r=RR*clamp(v,0,5)/5;
+  return[RCX+r*Math.cos(ang),RCY+r*Math.sin(ang)];
+}
+function rPoly(fn){return AXES.map((a,i)=>rPt(i,fn(a.k)).map(x=>x.toFixed(1)).join(',')).join(' ')}
+function bandOf(n){return (1-n/(n+4))*1.1}
+function renderCharRadar(svg,profile,perf){
+  const clipId='hwclip'+Math.floor(Math.random()*1e6);
+  let out=`<defs><clipPath id="${clipId}"><circle cx="${RCX}" cy="${RCY}" r="${RR}"/></clipPath></defs>`;
+  out+=`<g clip-path="url(#${clipId})" stroke="var(--ink)" stroke-width="1" opacity=".055">`;
+  for(let y=RCY-RR;y<=RCY+RR;y+=13)out+=`<line x1="${RCX-RR}" y1="${y}" x2="${RCX+RR}" y2="${y}"/>`;
+  out+=`</g>`;
+  for(let ring=1;ring<=5;ring++)out+=`<circle cx="${RCX}" cy="${RCY}" r="${RR*ring/5}" fill="none" stroke="var(--line)" stroke-width="${ring===5?1.6:1}"/>`;
+  AXES.forEach((a,i)=>{
+    const[x,y]=rPt(i,5);
+    out+=`<line x1="${RCX}" y1="${RCY}" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
+    const[lx,ly]=rPt(i,5.72);
+    const anchor=Math.abs(lx-RCX)<24?'middle':(lx<RCX?'end':'start');
+    const v=profile.n[a.k]?profile.theta[a.k].toFixed(1):'·';
+    out+=`<text x="${lx}" y="${ly-2}" text-anchor="${anchor}" font-size="22" font-weight="700" font-family="ui-monospace,monospace" fill="var(--ink)">${a.abbr}</text>`;
+    out+=`<text x="${lx}" y="${ly+18}" text-anchor="${anchor}" font-size="16" font-family="ui-monospace,monospace" fill="var(--muted)">${v}</text>`;
+  });
+  out+=`<polygon points="${rPoly(()=>3)}" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2,4" opacity=".7"/>`;
+  const outer=AXES.map((a,i)=>rPt(i,clamp(profile.theta[a.k]+bandOf(profile.n[a.k]),0,5)));
+  const inner=AXES.map((a,i)=>rPt(i,clamp(profile.theta[a.k]-bandOf(profile.n[a.k]),0,5)));
+  out+=`<path d="M${outer.map(p=>p.map(x=>x.toFixed(1)).join(',')).join('L')}Z M${inner.map(p=>p.map(x=>x.toFixed(1)).join(',')).join('L')}Z" fill="var(--ink)" opacity=".12" fill-rule="evenodd"/>`;
+  out+=`<polygon points="${rPoly(k=>profile.theta[k])}" fill="var(--ink)" opacity=".07"/>`;
+  out+=`<polygon points="${rPoly(k=>profile.theta[k])}" fill="none" stroke="var(--ink)" stroke-width="3"/>`;
+  if(perf&&AXES.some(a=>perf.n[a.k]>0)){
+    out+=`<polygon points="${rPoly(k=>perf.theta[k])}" fill="none" stroke="var(--bad)" stroke-width="2.4" stroke-dasharray="3,4"/>`;
+    AXES.forEach((a,i)=>{
+      if(!perf.n[a.k])return;
+      const[x,y]=rPt(i,perf.theta[a.k]);
+      out+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="var(--bad)"/>`;
+    });
+  }
+  svg.innerHTML=out;
 }
 
 /* ================= PUPPETS (odyssey close-up, from figures.html) ================= */
@@ -613,7 +655,8 @@ const PRESET_CAST=[
   constraints:'You soothe. You redirect. You choose the peace of the room over the truth of it, and you know you do.'}
 ];
 function seedWorld(){
-  const cast=S.cast||PRESET_CAST;
+  const cast=S.cast;
+  if(!cast.length){show('seed');$('#actionNote').textContent='the cast is empty — add at least one figure';return}
   W={tick:0,events:[],requirements:[],threads:[],pendingBuilds:[],builderWire:null,
     resources:{timber:6,cloth:4,labor:3},
     ablation:{builder:$('#ablBuilder').checked,fade:$('#ablFade').checked,redact:$('#ablRedact').checked,fidelity:$('#ablFidelity').checked},
@@ -640,7 +683,7 @@ function seedWorld(){
   for(const c of cast){
     const profile=emptyProfile();
     updateProfile(profile,scanText(c.card+' '+c.constraints));
-    W.chars[c.id]={...c,beliefs:[],episodic:[],gists:[],relations:{},profile,lastObstruction:null,collapseCooldown:0};
+    W.chars[c.id]={...c,beliefs:[],episodic:[],gists:[],relations:{},profile,perf:emptyProfile(),lastObstruction:null,collapseCooldown:0};
   }
   $('#log').innerHTML='';$('#castStrip').innerHTML='';PUPPETS.clear();evN=0;
   EV('seed',null,{note:'the world begins: five bare places, few objects, a resource pool (timber 6, cloth 4, labor 3)'},{authorship:'seed',seenBy:[]});
@@ -744,6 +787,9 @@ function applyAction(ch,act){
     if(to&&to.place===ch.place)openThread('reply',`${to.name} has not answered ${ch.name}`,e,to.id);
     if(to&&to.place!==ch.place)return obstruct(ch,act,`${to.name} is not here to hear it`);
     closeThreadsBy('reply',ch.id);
+    const uevts=scanText(text);
+    updateProfile(ch.perf,uevts);
+    ch._lastUtterEvts=uevts;
     if(W.ablation.fidelity)judgeUtterance(ch,text);
     return e;
   }
@@ -869,6 +915,24 @@ function completeBuilds(){
     }
   }
 }
+/* ---- the face is directed by the event, like figures.html: the dominant
+   evidence axis of an utterance casts the emotion; outcomes cast the rest ---- */
+const AXIS_EMO={openness:'wonder',conscientious:'resolve',extraversion:'tenderness',agreeableness:'tenderness',
+  neuroticism:'fear',logic:'skepticism',empathy:'tenderness',authority:'command',risk:'recognition',
+  uncertainty:'weariness',decisiveness:'resolve'};
+function moodOf(ch,ev){
+  if(ev.op==='obstructed')return 'weariness';
+  if(ev.op==='require')return 'concern';
+  if(ev.op==='speak'){
+    const evts=ch._lastUtterEvts||[];
+    const s={};for(const e of evts)s[e.axis]=(s[e.axis]||0)+e.dir*e.w;
+    let best=null;for(const k in s)if(!best||Math.abs(s[k])>Math.abs(s[best]))best=k;
+    if(best&&Math.abs(s[best])>=.8)return AXIS_EMO[best]||'resolve';
+    return /[?]/.test(ev.text)?'appeal':'resolve';
+  }
+  if(ev.op==='hesitate')return 'guarded';
+  return 'resolve';
+}
 /* ---- fidelity judge ---- */
 function judgeUtterance(ch,text){
   if(ch.collapseCooldown>W.tick)return;
@@ -947,8 +1011,7 @@ async function tick(){
   const ev=applyAction(ch,act);
   ch.episodic.push({tick:W.tick,text:plainLine(ev)});
   consolidate(ch);
-  const mood=ev.op==='obstructed'?'weariness':ev.op==='speak'?(/[?]/.test(ev.text)?'appeal':'resolve'):ev.op==='require'?'concern':'resolve';
-  setCharMood(ch.name,mood);
+  setCharMood(ch.name,moodOf(ch,ev));
   for(const t of W.threads)if(!t.closed&&t.waitingOn===ch.id)ch.pressure=Math.min(9,ch.pressure+0.3);
   renderAll();
 }
@@ -966,8 +1029,21 @@ function show(view){
   else{p.textContent='...';n.textContent=''}
 }
 function renderCast(){
-  const cast=S.cast||PRESET_CAST;
-  $('#castList').innerHTML=cast.map(c=>`<div class="castCard"><b>${esc(c.name)}</b><p>${esc(c.card)}</p></div>`).join('');
+  const cast=S.cast;
+  $('#castList').innerHTML=(cast.length?cast.map((c,i)=>`<div class="castCard" style="position:relative">
+      <b>${esc(c.name)}</b>
+      <button class="quiet" data-rm="${i}" style="position:absolute;top:6px;right:6px" title="Remove from cast">✕</button>
+      <p>${esc(c.card)}</p></div>`).join('')
+    :'<div class="notice" style="margin:8px 0">The cast is empty. Add figures from any text below, or restore the Danish court.</div>')
+    +`<div style="display:flex;gap:4px;margin-top:4px">
+       <button id="restoreBtn" class="quiet" type="button" style="border:1px solid var(--line)">RESTORE THE DANISH COURT</button>
+       <button id="clearBtn" class="quiet" type="button">CLEAR CAST</button>
+     </div>`;
+  $('#castList').querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{
+    S.cast.splice(Number(b.dataset.rm),1);renderCast();
+  }));
+  $('#restoreBtn').addEventListener('click',()=>{S.cast=JSON.parse(JSON.stringify(PRESET_CAST));renderCast()});
+  $('#clearBtn').addEventListener('click',()=>{S.cast=[];renderCast()});
 }
 function renderEvent(e){
   if(!$('#log'))return;
@@ -1065,7 +1141,7 @@ function renderLoom(){
       ablation:W.ablation,resources:W.resources,
       events:W.events,requirements:W.requirements,threads:W.threads,
       places:W.places,objects:W.objects,
-      chars:Object.fromEntries(Object.entries(W.chars).map(([k,c])=>[k,{name:c.name,card:c.card,place:c.place,pressure:c.pressure,beliefs:c.beliefs,episodic:c.episodic,gists:c.gists,relations:c.relations}]))};
+      chars:Object.fromEntries(Object.entries(W.chars).map(([k,c])=>[k,{name:c.name,card:c.card,place:c.place,pressure:c.pressure,beliefs:c.beliefs,episodic:c.episodic,gists:c.gists,relations:c.relations,profile:c.profile,performance:c.perf}]))};
     const blob=new Blob([JSON.stringify(artifact,null,1)],{type:'application/json'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='halfworld-run.json';a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
@@ -1073,19 +1149,25 @@ function renderLoom(){
 }
 function openCharSheet(id){
   const c=W.chars[id];if(!c)return;
-  const top=AXES.map(a=>({a,v:c.profile.theta[a.k],n:c.profile.n[a.k]})).filter(x=>x.n>0).sort((x,y)=>Math.abs(y.v-3)-Math.abs(x.v-3)).slice(0,3);
+  const spoke=AXES.some(a=>c.perf.n[a.k]>0);
   $('#sheetTitle').textContent=c.name;
   $('#sheetBody').innerHTML=`
     <h3>${esc(c.name)}</h3>
+    <svg id="sheetRadar" viewBox="0 0 720 552" style="width:100%;height:auto" role="img" aria-label="Character radar"></svg>
+    <div class="notice" style="margin:2px 0 10px">
+      <span style="border-top:3px solid var(--ink);display:inline-block;width:15px;vertical-align:middle;margin-right:4px"></span>who their text says they are
+      &nbsp;&nbsp;<span style="border-top:3px dashed var(--bad);display:inline-block;width:15px;vertical-align:middle;margin-right:4px"></span>who this world is making them${spoke?'':' (has not yet spoken)'}
+    </div>
     <p>${esc(c.card)}</p>
     <div class="notice" style="margin-bottom:10px">manner: ${esc(c.constraints)}</div>
-    <div class="notice">pressure ${c.pressure.toFixed(1)} · at ${esc(W.places[c.place].name)} · fidelity marks: ${top.map(x=>`${x.a.label} ${x.v.toFixed(1)}`).join(' · ')||'none yet'}</div>
+    <div class="notice">pressure ${c.pressure.toFixed(1)} · at ${esc(W.places[c.place].name)}</div>
     <h3 style="margin-top:14px">Believes</h3>
     ${c.beliefs.slice(-10).map(b=>`<div class="memRow">${esc(b.kind==='heard'?`${b.from} said: “${b.text}”`:b.text)}</div>`).join('')||'<div class="notice">only their condition</div>'}
     <h3 style="margin-top:14px">Remembers</h3>
     ${c.gists.map(g=>`<div class="memRow faded">${esc(g.text)}</div>`).join('')}
     ${c.episodic.slice(-8).map(m=>`<div class="memRow">t${m.tick} · ${esc(m.text)}</div>`).join('')||'<div class="notice">nothing yet</div>'}`;
   $('#sheet').classList.remove('hidden');
+  renderCharRadar($('#sheetRadar'),c.profile,c.perf);
 }
 $('#closeSheet').addEventListener('click',()=>$('#sheet').classList.add('hidden'));
 
@@ -1111,14 +1193,22 @@ $('#addBtn').addEventListener('click',()=>{
   const raw=$('#addText').value.trim();if(!raw)return;
   const first=raw.split('\n').map(l=>l.trim()).find(Boolean)||'';
   const m=first.match(/^([A-Z][^()\n:]{1,48}?)(?:\s*\(([A-Za-z .]{1,6})\))?\.?$/);
-  const name=(m?m[1]:'THE STRANGER').toUpperCase().slice(0,24);
-  const card=raw.replace(first,'').trim().slice(0,600)||raw.slice(0,600);
-  S.cast=[...(S.cast||PRESET_CAST),{id:name.toLowerCase().replace(/[^a-z]+/g,'')||'stranger'+Date.now()%97,name,pressure:3,place:'hall',
-    card:'You arrive knowing only your own account: '+card,
-    constraints:'Stay inside the voice of the account you gave.'}];
+  let name=(m?m[1]:'').toUpperCase().slice(0,24);
+  if(!name){
+    /* fall back: the most frequent speaker label, or a name asked of the text itself */
+    const lbl=raw.match(/^([A-Z][A-Za-z .'-]{1,24}):/m);
+    name=(lbl?lbl[1]:'THE STRANGER').toUpperCase().slice(0,24);
+  }
+  const card=(m?raw.replace(first,''):raw).trim().replace(/\s+/g,' ').slice(0,700);
+  const id=(name.toLowerCase().replace(/[^a-z]+/g,'')||'stranger')+(S.cast.some(c=>c.name===name)?String(Date.now()%97):'');
+  const places=['hall','garden','corridor','rampart','chapel'];
+  S.cast.push({id,name,pressure:3,place:places[S.cast.length%places.length],
+    card:'You know only your own account, in your own words: '+card,
+    constraints:'Stay inside the voice and concerns of the account you gave. You may do new things, but they must be yours.'});
   $('#addText').value='';renderCast();
 });
 restoreHosted();
+S.cast=JSON.parse(JSON.stringify(PRESET_CAST));
 renderCast();
 show('seed');
 })();
