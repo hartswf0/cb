@@ -1,0 +1,1127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HALFWORLD — theory-first character-world engine v0.1</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23fffdf7'/%3E%3Cpath d='M6 26V13l10-7 10 7v13' fill='none' stroke='%23181814' stroke-width='2' stroke-linejoin='round' stroke-dasharray='3 3'/%3E%3C/svg%3E">
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:light-dark(#f5f1e8,#10100e);
+  --paper:light-dark(#fffdf7,#171713);
+  --ink:light-dark(#181814,#f0eee6);
+  --muted:light-dark(#777268,#99968e);
+  --line:light-dark(#d8d1c4,#34322d);
+  --soft:light-dark(#ece5d8,#22211d);
+  --good:light-dark(#326245,#79b88d);
+  --bad:light-dark(#8d3029,#df766f);
+  --warn:light-dark(#88621f,#d7ad5f);
+  --blue:light-dark(#2b5d8a,#7db3dd);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink)}
+body{font:14px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.hidden{display:none!important}
+#app{height:100dvh;display:grid;grid-template-rows:auto 1fr auto;background:var(--paper)}
+header{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line);min-height:40px}
+.brand{font-weight:900;letter-spacing:.11em;white-space:nowrap}
+.brand:before{content:'◔◑';display:inline-block;margin-right:7px;letter-spacing:-.28em;transform:translateX(-.08em);font-weight:400}
+#status{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconBtn{border:0;background:transparent;padding:8px;color:var(--muted);min-width:38px;font-size:11px;letter-spacing:.06em}
+#stage{position:relative;min-height:0;overflow:hidden}
+.view{position:absolute;inset:0;display:grid;place-items:center;padding:14px;overflow:hidden}
+.primary{border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:10px 16px;min-height:44px;font-size:14px}
+.quiet{border:0;background:transparent;color:var(--muted);padding:8px 9px;font-size:11px;letter-spacing:.05em}
+#actionBar{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid var(--line);min-width:0}
+#actionNote{font-size:10px;color:var(--muted);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#primaryAction{margin-left:auto;white-space:nowrap}
+body[data-view="models"] #actionBar{display:none!important}
+/* seed */
+#seedView{align-items:start;overflow:auto;display:block;padding:clamp(16px,4vw,40px) max(16px,calc((100% - 760px)/2))}
+#seedView h1{font:700 clamp(26px,5vw,36px)/1.05 ui-serif,Georgia,serif;margin:0 0 8px}
+.lede{font:14px/1.55 ui-serif,Georgia,serif;color:var(--muted);max-width:620px;margin-bottom:16px}
+.castCard{border:1px solid var(--line);padding:10px 12px;margin-bottom:8px}
+.castCard b{font:700 15px ui-serif,Georgia,serif}
+.castCard p{font:12px/1.45 ui-serif,Georgia,serif;color:var(--muted);margin:4px 0 0}
+.ablRow{display:flex;gap:16px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin:14px 0}
+.ablRow label{display:flex;gap:6px;align-items:center}
+#addText{width:100%;min-height:80px;border:1px solid var(--line);background:transparent;padding:10px;font:13px/1.5 ui-serif,Georgia,serif;resize:vertical}
+/* stage view */
+#stageView{padding:0;display:grid;grid-template-columns:minmax(0,1fr);place-items:stretch}
+@media(min-width:980px){#stageView{grid-template-columns:300px minmax(0,1fr)}}
+#worldCol{border-right:1px solid var(--line);min-height:0;overflow:auto;padding:10px;display:none}
+@media(min-width:980px){#worldCol{display:block}}
+.placeCard{border:1px solid var(--line);padding:8px 10px;margin-bottom:8px}
+.placeCard h4{font:700 13px ui-serif,Georgia,serif;margin:0 0 3px}
+.placeCard .pl{font-size:10px;color:var(--muted);line-height:1.5}
+.placeCard .who{color:var(--ink);font-weight:600}
+#scriptCol{display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;min-height:0}
+#castStrip{display:flex;gap:4px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);overflow-x:auto}
+.castFace{display:grid;justify-items:center;gap:1px;border:0;background:transparent;padding:2px 5px;min-width:58px}
+.castFace canvas{width:44px;height:44px}
+.castFace span{font-size:8px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
+.castFace.sel span{color:var(--warn);font-weight:800}
+#log{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px max(14px,calc((100% - 620px)/2)) 40px;font:14px/1.55 "Courier Prime",Courier,"Courier New",monospace;scroll-behavior:smooth;scrollbar-width:thin}
+#log::-webkit-scrollbar{width:5px}
+#log::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ink) 20%,transparent);border-radius:4px}
+.ev{max-width:560px;margin:0 0 .9em;color:var(--muted)}
+.ev .tick{font-size:9px;letter-spacing:.08em;margin-right:8px;color:var(--muted);opacity:.7}
+.ev.act{color:var(--ink)}
+.ev.obstructed{color:var(--bad)}
+.ev.builder{color:var(--blue)}
+.ev.unresolved{font-style:italic}
+.ev.speak{max-width:380px;margin:.2em auto 1.1em;color:var(--ink)}
+.ev.speak .cue{display:block;text-align:center;font-weight:700;letter-spacing:.12em;font-size:11px;margin-bottom:2px}
+.ev.speak .dlg{display:block;text-align:center}
+.ev.thought{font-style:italic;opacity:.75;max-width:480px}
+.whisper{max-width:520px;margin:-.3em 0 1em;font-size:9.5px;color:var(--warn);letter-spacing:.04em}
+/* loom */
+#loomView{align-items:start;overflow:auto;display:block;padding:clamp(16px,4vw,40px) max(16px,calc((100% - 760px)/2))}
+#loomView h2{font:700 17px ui-serif,Georgia,serif;margin:20px 0 8px}
+.chain{border-left:2px solid var(--warn);padding:6px 0 6px 12px;margin:0 0 14px;font-size:11px;line-height:1.7}
+.chain .arr{color:var(--muted)}
+.threadRow{border-bottom:1px solid var(--line);padding:7px 0;font-size:11px}
+.threadRow .k{font-size:8px;letter-spacing:.12em;color:var(--warn);margin-right:8px}
+.threadRow.closed{opacity:.5}
+.ledgerRow{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;margin:8px 0}
+.ledgerRow b{font:700 16px ui-serif,Georgia,serif}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px solid var(--line);padding:10px;font-size:9px;max-height:32vh;overflow:auto}
+/* models (one door, from figures) */
+.startPanel{width:min(540px,92vw)}
+.startEyebrow{font-size:9px;letter-spacing:.16em;color:var(--muted);margin-bottom:8px}
+.startPanel h1{font:700 clamp(28px,5vw,40px)/1 ui-serif,Georgia,serif;margin:0 0 10px}
+.startPanel .lede{margin-bottom:22px}
+.startModelForm{display:grid;grid-template-columns:1fr;gap:10px}
+.startModelForm>select,.startModelForm>input{width:100%;min-height:52px;border:1px solid var(--line);background:transparent;padding:12px 14px;font-size:15px}
+.startButton{width:100%;min-height:54px;font-size:15px;letter-spacing:.05em}
+.rememberLine{display:flex;gap:8px;align-items:center;font-size:9px;letter-spacing:.09em;color:var(--muted)}
+.rememberLine input{width:14px;height:14px}
+.otherModels{margin-top:6px;border-top:1px solid var(--line);padding-top:10px;color:var(--muted)}
+.otherModels summary{cursor:pointer;font-size:10px;letter-spacing:.08em}
+.otherModelGrid{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
+.otherModelGrid select{width:100%;border:1px solid var(--line);background:transparent;padding:9px}
+.otherModelGrid button{border:1px solid var(--line);background:transparent;padding:9px 12px}
+.otherModelGrid #customBaseWrap{grid-column:1/-1;display:none}
+.otherModelGrid #customBaseWrap input{width:100%;border:1px solid var(--line);background:transparent;padding:9px}
+#hostedStatus{font-size:10px;line-height:1.5;margin-top:10px;min-height:15px}
+#hostedStatus.good{color:var(--good)}
+#hostedStatus.bad{color:var(--bad)}
+/* sheet */
+#sheet{position:absolute;inset:0 0 0 auto;width:min(520px,100%);background:var(--paper);border-left:1px solid var(--line);z-index:20;display:grid;grid-template-rows:auto 1fr}
+.sheetHead{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--line)}
+.sheetHead strong{font-size:11px;letter-spacing:.09em}
+.sheetHead button{margin-left:auto}
+.sheetBody{overflow:auto;padding:14px;scrollbar-width:thin}
+.sheetBody h3{font:700 15px ui-serif,Georgia,serif;margin:0 0 8px}
+.sheetBody p{font:14px/1.55 ui-serif,Georgia,serif;color:var(--muted);margin:0 0 .8em}
+.notice{font-size:11px;color:var(--muted);line-height:1.5}
+.memRow{border-bottom:1px solid var(--line);padding:6px 0;font-size:11px}
+.memRow.faded{opacity:.55;font-style:italic}
+</style>
+</head>
+<body data-view="seed">
+<div id="app">
+<header>
+  <div class="brand">HALFWORLD</div>
+  <div id="status">seed the world</div>
+  <button id="backBtn" class="iconBtn hidden" type="button">SEED</button>
+  <button id="loomBtn" class="iconBtn hidden" type="button">LOOM</button>
+</header>
+
+<section id="stage">
+  <section id="seedView" class="view">
+    <div style="max-width:760px">
+      <div class="startEyebrow">THEORY-FIRST CHARACTER-WORLD ENGINE · v0.1</div>
+      <h1>Characters first. World second.</h1>
+      <div class="lede">Most systems build a finished world and place characters inside it. This one reverses the relationship: source-grounded characters get only their local situation; the world gets only enough bare substrate for action to begin, and it resists. Watch what their continued attempts to act force the world to become. The theory of this program is in <b>halfworld-theory.md</b>.</div>
+      <div id="castList"></div>
+      <details style="margin:10px 0">
+        <summary class="notice" style="cursor:pointer">ADD A FIGURE FROM ANY TEXT</summary>
+        <textarea id="addText" placeholder="Paste any writing — a monologue, a letter, a transcript passage. The voice becomes a character card."></textarea>
+        <button id="addBtn" class="quiet" type="button" style="border:1px solid var(--line);margin-top:6px">ADD TO CAST</button>
+      </details>
+      <div class="ablRow">
+        <label><input id="ablBuilder" type="checkbox" checked>BUILDER</label>
+        <label><input id="ablFade" type="checkbox" checked>MEMORY FADE</label>
+        <label><input id="ablRedact" type="checkbox" checked>SOURCE-BLIND BUILDER</label>
+        <label><input id="ablFidelity" type="checkbox" checked>FIDELITY JUDGE</label>
+      </div>
+      <div class="notice">Ablation switches remove one alleged cause each. The invariants (speech is not physics; belief is not fact; possession moves only by events) are not switchable — they are the kernel.</div>
+    </div>
+  </section>
+
+  <section id="modelsView" class="view hidden">
+    <div class="startPanel">
+      <div class="startEyebrow">ONE-TIME SETUP</div>
+      <h1>Connect a model</h1>
+      <div class="lede">Characters deliberate and the builder answers through one model. The key stays in this browser.</div>
+      <form id="hostedForm" class="startModelForm">
+        <select id="hostedModel" aria-label="Model"><option value="">loading models…</option></select>
+        <input id="hostedKey" type="password" autocomplete="off" placeholder="OpenAI API key">
+        <button id="addHostedBtn" class="primary startButton" type="submit">ENTER</button>
+        <label class="rememberLine"><input id="hostedRemember" type="checkbox"><span>REMEMBER KEY ON THIS DEVICE</span></label>
+        <details class="otherModels">
+          <summary>Other models</summary>
+          <div class="otherModelGrid">
+            <select id="hostedProvider" aria-label="Provider">
+              <option value="openai">OpenAI</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="custom">Custom</option>
+            </select>
+            <button id="loadModelsBtn" type="button">LOAD</button>
+            <div id="customBaseWrap"><input id="customBase" placeholder="https://host/v1"></div>
+          </div>
+          <div class="notice" style="margin-top:8px">Local LM Studio, Ollama, and llama.cpp are discovered automatically and appear above. They need no key.</div>
+        </details>
+      </form>
+      <div id="hostedStatus" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="stageView" class="view hidden">
+    <div id="worldCol"></div>
+    <div id="scriptCol">
+      <div id="castStrip"></div>
+      <div id="log" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="loomView" class="view hidden"></section>
+
+  <aside id="sheet" class="hidden">
+    <div class="sheetHead"><strong id="sheetTitle">—</strong><button id="closeSheet" class="quiet" type="button">CLOSE</button></div>
+    <div id="sheetBody" class="sheetBody"></div>
+  </aside>
+</section>
+
+<footer id="actionBar">
+  <div id="actionNote"></div>
+  <button id="runBtn" class="quiet hidden" type="button">RUN ×5</button>
+  <button id="primaryAction" class="primary" type="button">SEED WORLD</button>
+</footer>
+</div>
+
+<script>
+(()=>{'use strict';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const uniq=a=>[...new Set(a)];
+const arr=v=>Array.isArray(v)?v:v==null?[]:[v];
+function seedOf(str){let h=2166136261>>>0;for(let i=0;i<String(str).length;i++){h^=String(str).charCodeAt(i);h=Math.imul(h,16777619)>>>0}return h}
+function rnd2(seed,i){const s=Math.sin((seed%9973)*0.017+i*12.9898)*43758.5453;return s-Math.floor(s)}
+
+/* ================= PROVIDER LAYER (FIGURE CORPS 1.6.3, as in figures.html) ================= */
+const PROVIDERS={
+  lmstudio:{label:'LM Studio',base:'http://localhost:1234/v1',local:true},
+  ollama:{label:'Ollama',base:'http://localhost:11434/v1',local:true},
+  llamacpp:{label:'llama.cpp',base:'http://localhost:8080/v1',local:true},
+  openrouter:{label:'OpenRouter',base:'https://openrouter.ai/api/v1',key:true},
+  openai:{label:'OpenAI',base:'https://api.openai.com/v1',key:true},
+  custom:{label:'Custom',base:'',key:true}
+};
+const OPENAI_BUILTIN_MODELS=['gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna'];
+function chatModelFilter(provider,ids){
+  if(provider==='openai')return ids.filter(id=>/^(gpt-|o[1-9]|chatgpt)/.test(id)&&!/(embed|whisper|tts|audio|realtime|image|dall|moderation|transcribe|search|instruct-0914)/i.test(id));
+  return ids;
+}
+const S={sockets:[],activeSocketId:'',discovering:false,catalog:[],view:'seed'};
+function activeSocket(){return S.sockets.find(x=>x.id===S.activeSocketId)||null}
+function addSocket(s){
+  const id=(s.provider||'x')+'|'+s.base+'|'+s.model;
+  const ex=S.sockets.find(x=>x.id===id);
+  if(ex){ex.key=s.key||ex.key;return ex}
+  const sock={id,...s};S.sockets.push(sock);return sock;
+}
+async function discoverLocal(){
+  if(S.discovering)return;S.discovering=true;
+  await Promise.all(['lmstudio','ollama','llamacpp'].map(async p=>{
+    const cfg=PROVIDERS[p];
+    try{
+      const c=new AbortController();const t=setTimeout(()=>c.abort(),1800);
+      const r=await fetch(cfg.base+'/models',{signal:c.signal});clearTimeout(t);
+      if(!r.ok)return;
+      const d=await r.json();
+      arr(d.data).map(x=>x.id||x.name).filter(Boolean).slice(0,20)
+        .forEach(m=>addSocket({provider:p,label:cfg.label,base:cfg.base,model:m,key:'',local:true}));
+    }catch(e){}
+  }));
+  S.discovering=false;
+  if(!S.activeSocketId){const f=S.sockets.find(x=>x.local);if(f)S.activeSocketId=f.id}
+  if(S.view==='models')renderModelSelect(S.catalog,'');
+}
+const MODEL_CAPS=new Map();
+function modelCaps(sock){const k=sock.provider+':'+sock.model;if(!MODEL_CAPS.has(k))MODEL_CAPS.set(k,{});return MODEL_CAPS.get(k)}
+function apiErrorInfo(detail){
+  const text=String(detail||'');let json=null;try{json=JSON.parse(text)}catch(e){}
+  const err=json?.error||json||{};
+  return{message:String(err.message||text||''),param:String(err.param||'')};
+}
+function isUnsupportedParam(detail,name){
+  const e=apiErrorInfo(detail),n=String(name||'').toLowerCase();
+  return e.param.toLowerCase()===n||(e.message.toLowerCase().includes('unsupported parameter')&&e.message.toLowerCase().includes(n));
+}
+async function fetchTimed(url,options={},ms=60000){
+  const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);
+  try{return await fetch(url,{...options,signal:c.signal})}
+  catch(e){if(e?.name==='AbortError')throw Error('Model call timed out.');throw e}
+  finally{clearTimeout(t)}
+}
+function headersFor(sock){return{'Content-Type':'application/json',...(sock.key?{Authorization:'Bearer '+sock.key}:{})}}
+function openAIOutputText(d){
+  if(typeof d?.output_text==='string'&&d.output_text.trim())return d.output_text.trim();
+  const parts=[];for(const item of arr(d?.output))for(const c of arr(item?.content))if(c?.type==='output_text'&&c.text)parts.push(c.text);
+  return parts.join('\n').trim();
+}
+async function callSocket(sock,messages,{temperature=.6}={}){
+  if(sock.provider==='openai'){
+    const instructions=messages.filter(m=>m.role==='system').map(m=>String(m.content||'')).join('\n\n');
+    const input=messages.filter(m=>m.role!=='system').map(m=>({role:m.role==='assistant'?'assistant':'user',content:String(m.content||'')}));
+    const body={model:sock.model,input};if(instructions)body.instructions=instructions;
+    const caps=modelCaps(sock);if(Number.isFinite(temperature)&&caps.temperature!==false)body.temperature=temperature;
+    const endpoint=sock.base.replace(/\/$/,'')+'/responses';
+    const send=()=>fetchTimed(endpoint,{method:'POST',headers:headersFor(sock),body:JSON.stringify(body)});
+    let r=await send();
+    if(!r.ok){
+      let detail=await r.text().catch(()=> '');
+      if(r.status===400&&Object.prototype.hasOwnProperty.call(body,'temperature')&&isUnsupportedParam(detail,'temperature')){
+        caps.temperature=false;delete body.temperature;r=await send();
+        if(!r.ok)detail=await r.text().catch(()=> '');
+      }
+      if(!r.ok)throw Error(`${sock.label} ${r.status}${detail?' · '+detail.slice(0,240):''}`);
+    }
+    const d=await r.json(),out=openAIOutputText(d);
+    if(!out)throw Error(`${sock.label} returned no output text`);
+    return out;
+  }
+  let body={model:sock.model,messages};const caps=modelCaps(sock);
+  if(Number.isFinite(temperature)&&caps.temperature!==false)body.temperature=temperature;
+  const endpoint=sock.base.replace(/\/$/,'')+'/chat/completions';
+  const send=()=>fetchTimed(endpoint,{method:'POST',headers:headersFor(sock),body:JSON.stringify(body)});
+  let r=await send();let detail='';
+  if(!r.ok){detail=await r.text().catch(()=> '');if(r.status===400&&Object.prototype.hasOwnProperty.call(body,'temperature')&&isUnsupportedParam(detail,'temperature')){caps.temperature=false;delete body.temperature;r=await send();if(!r.ok)detail=await r.text().catch(()=> '')}}
+  if(!r.ok)throw Error(`${sock.label} ${r.status}${detail?' · '+detail.slice(0,240):''}`);
+  const d=await r.json(),out=d?.choices?.[0]?.message?.content;
+  if(!out)throw Error(`${sock.label} returned no assistant text`);
+  return typeof out==='string'?out:arr(out).map(x=>x?.text||'').join('\n').trim();
+}
+async function callJSON(sock,system,user,temperature){
+  const raw=await callSocket(sock,[{role:'system',content:system},{role:'user',content:user}],{temperature});
+  const m=raw.match(/\{[\s\S]*\}/);
+  return JSON.parse(m?m[0]:raw);
+}
+/* one-door UI */
+function hostedStatus(msg,cls=''){const el=$('#hostedStatus');el.textContent=msg;el.className=cls}
+function configureHostedProviderUI(){
+  const provider=$('#hostedProvider').value;
+  $('#customBaseWrap').style.display=provider==='custom'?'block':'none';
+  $('#loadModelsBtn').style.display=provider==='openai'?'none':'';
+  $('#hostedKey').placeholder=provider==='openai'?'paste OpenAI API key':provider==='openrouter'?'paste OpenRouter API key':'paste API key (blank if none)';
+}
+function renderModelSelect(catalogIds,placeholder){
+  S.catalog=catalogIds;
+  const sel=$('#hostedModel'),provider=$('#hostedProvider').value,prev=sel.value;
+  const locals=S.sockets.filter(x=>x.local);
+  let html='';
+  if(locals.length)html+=`<optgroup label="LOCAL — no key needed">${locals.map(x=>`<option value="local|${esc(x.id)}">${esc(x.model)} · ${esc(x.label)}</option>`).join('')}</optgroup>`;
+  if(catalogIds.length)html+=`<optgroup label="${esc(PROVIDERS[provider].label)}">${catalogIds.map(id=>`<option value="${esc(id)}">${esc(id)}</option>`).join('')}</optgroup>`;
+  if(!html)html=`<option value="">${esc(placeholder||'no models yet')}</option>`;
+  sel.innerHTML=html;
+  if(prev&&[...sel.options].some(o=>o.value===prev))sel.value=prev;
+}
+let hostedLoadSeq=0;
+async function loadHostedModels(){
+  const provider=$('#hostedProvider').value,cfg=PROVIDERS[provider];
+  const keyValue=$('#hostedKey').value.trim();
+  const base=(provider==='custom'?$('#customBase').value.trim():cfg.base).replace(/\/$/,'');
+  configureHostedProviderUI();
+  if(provider==='openai'){
+    renderModelSelect(OPENAI_BUILTIN_MODELS);
+    hostedStatus(keyValue?'Ready. Press ENTER.':'Paste your OpenAI API key, then press ENTER — or pick a LOCAL model above.',keyValue?'good':'');
+    return;
+  }
+  if(provider==='custom'&&!base){renderModelSelect([],'enter the base URL first');hostedStatus('Custom provider needs a base URL like https://host/v1');return}
+  if(cfg.key&&!keyValue&&provider!=='custom'){renderModelSelect([],'paste a key first');hostedStatus('');return}
+  const seq=++hostedLoadSeq;
+  renderModelSelect([],'loading…');hostedStatus(`Asking ${cfg.label} for its model list…`);
+  try{
+    const r=await fetch(base+'/models',{headers:keyValue?{Authorization:'Bearer '+keyValue}:{}});
+    if(seq!==hostedLoadSeq)return;
+    if(r.status===401||r.status===403){renderModelSelect([],'key rejected');hostedStatus(`${cfg.label} rejected the key (HTTP ${r.status}).`,'bad');return}
+    if(!r.ok){renderModelSelect([],'provider error');hostedStatus(`${cfg.label} answered HTTP ${r.status}.`,'bad');return}
+    const d=await r.json();
+    let ids=arr(d.data).map(x=>x.id||x.name).filter(Boolean);
+    ids=chatModelFilter(provider,ids).sort((a,b)=>b.localeCompare(a)).slice(0,300);
+    if(!ids.length){renderModelSelect([],'no chat models');hostedStatus(`${cfg.label} returned no chat-capable models.`,'bad');return}
+    renderModelSelect(ids);
+    hostedStatus(`${ids.length} chat models loaded — pick one and press ENTER.`,'good');
+  }catch(e){
+    if(seq!==hostedLoadSeq)return;
+    renderModelSelect([],'unreachable');
+    hostedStatus(`${cfg.label} model discovery is unreachable from this browser.`,'bad');
+  }
+}
+function saveHosted(){
+  if(!$('#hostedRemember').checked)return;
+  try{localStorage.setItem('centaur-figures-hosted',JSON.stringify({provider:$('#hostedProvider').value,key:$('#hostedKey').value,base:$('#customBase').value,model:$('#hostedModel').value,remember:true}))}catch(e){}
+}
+function restoreHosted(){
+  let raw=null;try{raw=localStorage.getItem('centaur-figures-hosted')}catch(e){}
+  if(!raw)return;
+  try{
+    const d=JSON.parse(raw);if(!d.remember||!d.key)return;
+    $('#hostedProvider').value=d.provider||'openai';$('#hostedKey').value=d.key||'';$('#customBase').value=d.base||'';$('#hostedRemember').checked=true;
+    const model=d.model&&!String(d.model).startsWith('local|')?d.model:'';
+    if(!model)return;
+    const cfg=PROVIDERS[d.provider||'openai'];
+    const base=((d.provider==='custom'?d.base:cfg.base)||'').replace(/\/$/,'');
+    if(!base)return;
+    const sock=addSocket({provider:d.provider||'openai',label:cfg.label,base,model,key:d.key,local:false});
+    S.activeSocketId=sock.id;
+  }catch(e){}
+}
+function openModels(){show('models');configureHostedProviderUI();discoverLocal();loadHostedModels()}
+$('#hostedProvider').addEventListener('change',()=>{configureHostedProviderUI();loadHostedModels()});
+$('#loadModelsBtn').addEventListener('click',loadHostedModels);
+let keyTimer=null;
+$('#hostedKey').addEventListener('input',()=>{clearTimeout(keyTimer);keyTimer=setTimeout(loadHostedModels,$('#hostedProvider').value==='openai'?0:450)});
+$('#hostedForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const sel=$('#hostedModel').value;
+  if(!sel){hostedStatus('Pick a model first.','bad');return}
+  if(sel.startsWith('local|')){
+    const sock=S.sockets.find(x=>x.id===sel.slice(6));
+    if(!sock){hostedStatus('That local model is gone — reload.','bad');return}
+    S.activeSocketId=sock.id;
+  }else{
+    const provider=$('#hostedProvider').value,cfg=PROVIDERS[provider];
+    const keyValue=$('#hostedKey').value.trim();
+    const base=(provider==='custom'?$('#customBase').value.trim():cfg.base).replace(/\/$/,'');
+    if(!base){hostedStatus('Base URL required.','bad');return}
+    if(cfg.key&&!keyValue&&provider!=='custom'){hostedStatus('This provider needs an API key.','bad');return}
+    S.activeSocketId=addSocket({provider,label:cfg.label,base,model:sel,key:keyValue,local:false}).id;
+    saveHosted();
+  }
+  if(S.pendingSeed){S.pendingSeed=false;seedWorld();return}
+  show(W?'stage':'seed');
+});
+
+/* ================= FIDELITY ENGINE (from figures.html, single channel) ================= */
+const AXES=[
+ {k:'openness',label:'openness'},{k:'conscientious',label:'order'},{k:'extraversion',label:'expansiveness'},
+ {k:'agreeableness',label:'accord'},{k:'neuroticism',label:'trouble'},{k:'logic',label:'reasoning'},
+ {k:'empathy',label:'empathy'},{k:'authority',label:'command'},{k:'risk',label:'daring'},
+ {k:'uncertainty',label:'hedging'},{k:'decisiveness',label:'resolve'}
+];
+const LEX={
+ openness:[{rx:/\b(imagine[ds]?|wonder(?:ed|ing)?|curious|dream(?:ed|s|t)?|beautiful|music|mystery|mysterious|strange|discover\w*)\b/gi,dir:1,w:1}],
+ conscientious:[{rx:/\b(work(?:ed|ing)?|duty|dut(?:y|ies)|responsib\w+|plan(?:ned|ning|s)?|careful(?:ly)?|order(?:ed|ly)?|every (?:day|night))\b/gi,dir:1,w:1}],
+ extraversion:[{rx:/\b(friends?|everybody|everyone|laugh(?:ed|ing|ter)?|crowd|feast)\b/gi,dir:1,w:1},{rx:/\b(alone|apart|kept to myself)\b/gi,dir:-1,w:1}],
+ agreeableness:[{rx:/\b(kind(?:ness)?|gentle|help(?:ed|ing)?|forgive\w*|love[ds]?|patient)\b/gi,dir:1,w:1},{rx:/\b(hate[ds]?|refuse[ds]?|against)\b/gi,dir:-1,w:.7}],
+ neuroticism:[{rx:/\b(afraid|fear\w*|worr\w+|nervous|anxious|grief|griev\w+|broken|trembl\w+|sorrow)\b/gi,dir:1,w:1},{rx:/\b(calm|at peace|unmoved)\b/gi,dir:-1,w:1}],
+ logic:[{rx:/\b(because|therefore|the reason|proof|evidence|reason\w*)\b/gi,dir:1,w:.8}],
+ empathy:[{rx:/\b(?:he|she|they)\s+(?:felt|must have felt|suffer\w*)\b/gi,dir:1,w:1},{rx:/\bI could (?:see|tell|feel)\b/gi,dir:1,w:1}],
+ authority:[{rx:/\b(listen|mark me|I command|must|shall|obey)\b/gi,dir:1,w:.7},{rx:/\b(I obey|as you wish|pardon)\b/gi,dir:-1,w:.8}],
+ risk:[{rx:/\b(dare[ds]?|risk\w*|chance[s]?|venture[ds]?|defy|confront\w*)\b/gi,dir:1,w:1},{rx:/\b(safe|caution|wait\w*)\b/gi,dir:-1,w:.6}],
+ uncertainty:[{rx:/\b(perhaps|maybe|I think|I know not|whether|or not|doubt\w*|seems?)\b/gi,dir:1,w:.7},{rx:/\b(certain(?:ly)?|no doubt|surely)\b/gi,dir:-1,w:.7}],
+ decisiveness:[{rx:/\b(I will|now|at once|resolved?|it is decided|no more)\b/gi,dir:1,w:.8},{rx:/\b(not yet|first I must|let me think)\b/gi,dir:-1,w:.8}]
+};
+function scanText(text){
+  const evts=[];
+  for(const ax of AXES)for(const rule of LEX[ax.k]){
+    rule.rx.lastIndex=0;let m;
+    while((m=rule.rx.exec(text))){evts.push({axis:ax.k,dir:rule.dir,w:rule.w,match:m[0]});if(!rule.rx.global)break}
+  }
+  return evts;
+}
+function emptyProfile(){return{theta:Object.fromEntries(AXES.map(a=>[a.k,3])),n:Object.fromEntries(AXES.map(a=>[a.k,0]))}}
+function updateProfile(p,evts){
+  const sums={};
+  for(const e of evts){const s=sums[e.axis]||(sums[e.axis]={sum:0,hits:0});s.sum+=e.dir*e.w;s.hits++}
+  for(const ax of AXES){
+    const s=sums[ax.k];if(!s||!s.hits)continue;
+    const v=clamp(3+1.5*Math.tanh(s.sum/1.5),1,5);
+    p.theta[ax.k]+= (v-p.theta[ax.k])/(p.n[ax.k]+2);
+    p.n[ax.k]++;
+  }
+  return sums;
+}
+
+/* ================= PUPPETS (odyssey close-up, from figures.html) ================= */
+const EMOTIONS={
+  recognition:{browUp:.9,eyeWide:.62,headPitch:-.1,jaw:.14},appeal:{browUp:.7,browKnit:.3,eyeWide:.3,headPitch:-.16},
+  weariness:{browUp:.26,browKnit:.18,eyeNarrow:.46,frown:.22,headPitch:.26},resolve:{browKnit:.4,eyeNarrow:.22,frown:.12,headPitch:-.04},
+  command:{browKnit:.48,eyeWide:.16,frown:.1,headPitch:-.06},tenderness:{browUp:.34,smile:.3,eyeNarrow:.2,headPitch:.16,headRoll:.07},
+  grief:{browUp:.5,browKnit:.52,frown:.52,headPitch:.34},concern:{browUp:.48,browKnit:.4,frown:.28,headPitch:.12},
+  fear:{browUp:.85,browKnit:.45,eyeWide:.8,headPitch:.1},wonder:{browUp:.68,eyeWide:.55,headPitch:-.14},
+  guarded:{browKnit:.28,eyeNarrow:.3,frown:.18,headYaw:.22},skepticism:{browUp:.16,browKnit:.36,eyeNarrow:.4,mouthAsym:.65,headRoll:-.22}
+};
+const FACE_PARAMS=['browUp','browKnit','eyeWide','eyeNarrow','smile','frown','mouthAsym','jaw','cheek','headPitch','headYaw','headRoll'];
+const INKLAW={floor:.20,mid:.58,k:2.60,grade(d){const{mid,k}=this;return d<mid?mid*Math.pow(d/mid,k):1-(1-mid)*Math.pow((1-d)/(1-mid),k)}};
+const OFF_PALETTE={ink:'#181814',paper:'#fffdf7',skin:'#e0dacd',hair:'#4e4b46'};
+function faceSpecFor(name){
+  const s=seedOf(name||'x');const r=(i,a,b)=>a+rnd2(s,i)*(b-a);
+  return{seed:s,faceW:r(1,.92,1.08),jawW:r(2,.85,1.12),chin:r(3,.9,1.1),browW:r(4,.9,1.3),eyeGap:r(5,.9,1.14),hairMass:r(6,.55,1.2),hairDrop:r(7,-.05,.16),lip:r(8,.88,1.06),amp:r(9,.03,.1)};
+}
+const PUPPETS=new Map();
+function makePuppet(canvas,name){
+  const off=document.createElement('canvas');off.width=off.height=200;
+  const p={canvas,off,spec:faceSpecFor(name),
+    cur:Object.fromEntries(FACE_PARAMS.map(k=>[k,0])),tgt:Object.fromEntries(FACE_PARAMS.map(k=>[k,0])),
+    blinkAt:performance.now()/1000+1+rnd2(seedOf(name),77)*3,sacX:0,sacY:0,sacAt:0};
+  PUPPETS.set(name,p);return p;
+}
+function setCharMood(name,emo){
+  const p=PUPPETS.get(name);if(!p)return;
+  const vec=EMOTIONS[emo]||{};
+  for(const k of FACE_PARAMS)p.tgt[k]=(vec[k]||0)*.85;
+}
+let probeEl=null,probeCache={},probeAt=0;
+function resolveToken(nm,t){
+  if(t-probeAt>1){probeCache={};probeAt=t}
+  if(probeCache[nm])return probeCache[nm];
+  if(!probeEl){probeEl=document.createElement('i');probeEl.style.display='none';document.body.appendChild(probeEl)}
+  probeEl.style.color=`var(${nm})`;
+  return probeCache[nm]=getComputedStyle(probeEl).color;
+}
+function inkRGBA(ink,a){const m=String(ink).match(/(\d+)[, ]+(\d+)[, ]+(\d+)/);return m?`rgba(${m[1]},${m[2]},${m[3]},${a})`:`rgba(0,0,0,${a})`}
+function drawPuppet(p,t){
+  const c=p.off,{ink,paper,skin,hair}=OFF_PALETTE;
+  const w=c.width,h=c.height,g=c.getContext('2d');
+  g.setTransform(1,0,0,1,0,0);g.fillStyle=paper;g.fillRect(0,0,w,h);
+  const st=p.cur,sp=p.spec,R=Math.min(w,h)*0.42;
+  const breathe=Math.sin(t*0.9+sp.seed%7)*0.012;
+  const cx=w/2+st.headYaw*R*0.2,cy=h/2+R*0.06+st.headPitch*R*0.24+breathe*R;
+  g.save();g.translate(w/2,h/2);g.rotate(st.headRoll*0.32);g.translate(-w/2,-h/2);
+  const lw=Math.max(1.1,R*0.055);
+  const jawDrop=R*0.22*clamp(st.jaw,0,1);
+  const fw=R*0.92*sp.faceW,jw=fw*0.9*sp.jawW;
+  const yTop=cy-R,yTemple=cy-R*0.34,yJaw=cy+R*0.42+jawDrop*0.55,yChin=cy+R*0.8*sp.chin+jawDrop;
+  g.beginPath();
+  g.moveTo(cx-fw,yTemple);g.quadraticCurveTo(cx-fw*1.02,yTop,cx,yTop);
+  g.quadraticCurveTo(cx+fw*1.02,yTop,cx+fw,yTemple);
+  g.quadraticCurveTo(cx+fw*0.98,cy+R*0.12,cx+jw,yJaw);
+  g.quadraticCurveTo(cx+jw*0.55,yChin,cx,yChin);
+  g.quadraticCurveTo(cx-jw*0.55,yChin,cx-jw,yJaw);
+  g.quadraticCurveTo(cx-fw*0.98,cy+R*0.12,cx-fw,yTemple);
+  g.closePath();g.fillStyle=skin;g.fill();g.lineWidth=lw;g.strokeStyle=ink;g.stroke();
+  const hm=sp.hairMass,hd=sp.hairDrop,hpts=[];const n=11;
+  for(let i=0;i<=n;i++){const a=Math.PI*(1+i/n);hpts.push([cx+Math.cos(a)*fw*1.04*hm,cy-R*0.28+Math.sin(a)*R*0.82*hm])}
+  hpts.push([cx+fw*0.95,yTemple-R*0.02+hd*R]);hpts.push([cx,cy-R*(0.52-hd)]);hpts.push([cx-fw*0.95,yTemple-R*0.02+hd*R]);
+  g.beginPath();
+  hpts.forEach(([x,y],i)=>{const j=(rnd2(sp.seed,i)-0.4)*sp.amp*R;if(i===0)g.moveTo(x,y+j);else g.lineTo(x+j,y+j)});
+  g.closePath();g.fillStyle=hair;g.fill();g.lineWidth=lw*0.9;g.strokeStyle=ink;g.stroke();
+  const eyeY=cy-R*0.14,exo=sp.eyeGap*R*0.34,browY=cy-R*0.27-st.browUp*R*0.10;
+  g.lineWidth=Math.max(1.3,R*0.075*sp.browW);g.lineCap='round';g.strokeStyle=ink;
+  for(const side of [-1,1]){
+    const xi=cx+side*(exo-R*0.16+st.browKnit*R*0.06),xo=cx+side*(exo+R*0.18);
+    const yi=browY+st.browKnit*R*0.10,yo=browY+R*0.03;
+    g.beginPath();g.moveTo(xi,yi);g.quadraticCurveTo(cx+side*exo,browY-R*0.05,xo,yo);g.stroke();
+  }
+  if(t>p.blinkAt){if(t>p.blinkAt+0.13)p.blinkAt=t+2.6+rnd2(sp.seed,Math.floor(t))*3.2}
+  const blink=t>p.blinkAt&&t<=p.blinkAt+0.13?0.08:1;
+  if(t>p.sacAt){p.sacX=(rnd2(sp.seed,Math.floor(t*3))-0.5)*R*0.05;p.sacY=(rnd2(sp.seed,Math.floor(t*3)+9)-0.5)*R*0.02;p.sacAt=t+0.9+rnd2(sp.seed,Math.floor(t))*1.6}
+  const eh=Math.min(R*0.135,R*0.095*(1+st.eyeWide*0.6-st.eyeNarrow*0.55))*blink,ew=R*0.155;
+  for(const side of [-1,1]){
+    const ex=cx+side*exo;
+    g.beginPath();g.ellipse(ex,eyeY,ew,Math.max(R*0.008,eh),0,0,Math.PI*2);
+    g.fillStyle=paper;g.fill();g.lineWidth=Math.max(1,lw*0.7);g.strokeStyle=ink;g.stroke();
+    if(blink>0.5){
+      g.beginPath();g.arc(ex+p.sacX,eyeY+p.sacY,Math.min(eh*0.85,R*0.05),0,Math.PI*2);g.fillStyle=ink;g.fill();
+      g.beginPath();g.arc(ex+p.sacX-R*0.015,eyeY+p.sacY-R*0.015,R*0.012,0,Math.PI*2);g.fillStyle=paper;g.fill();
+    }
+  }
+  g.lineWidth=Math.max(1,lw*0.6);g.beginPath();g.moveTo(cx-R*0.02,eyeY+R*0.08);g.quadraticCurveTo(cx-R*0.05,cy+R*0.14,cx+R*0.04,cy+R*0.17);g.stroke();
+  const yM=cy+R*0.42,mw=R*0.26*sp.lip;
+  const cornerL=yM-st.smile*R*0.09+st.frown*R*0.09-st.mouthAsym*R*0.06;
+  const cornerR=yM-st.smile*R*0.09+st.frown*R*0.09+st.mouthAsym*R*0.02;
+  g.lineWidth=Math.max(1.2,lw*0.8);g.beginPath();
+  g.moveTo(cx-mw,cornerL);
+  g.quadraticCurveTo(cx,yM+(st.smile>st.frown?R*0.07*st.smile:-R*0.05*st.frown)+R*0.01,cx+mw,cornerR);
+  g.stroke();
+  g.restore();
+}
+function dotify(dstCanvas,srcCanvas,ink,paper){
+  const dpr=Math.min(2,devicePixelRatio||1);
+  const w=dstCanvas.clientWidth||44,h=dstCanvas.clientHeight||44;
+  if(dstCanvas.width!==w*dpr||dstCanvas.height!==h*dpr){dstCanvas.width=w*dpr;dstCanvas.height=h*dpr}
+  const CW=dstCanvas.width,CH=dstCanvas.height,g=dstCanvas.getContext('2d');
+  const SW=srcCanvas.width,SH=srcCanvas.height;
+  const src=srcCanvas.getContext('2d').getImageData(0,0,SW,SH).data;
+  const s=Math.min(CW/SW,CH/SH),ox=(CW-SW*s)/2,oy=(CH-SH*s)/2;
+  const cell=Math.max(2.2,CW/34);
+  g.setTransform(1,0,0,1,0,0);
+  g.fillStyle=paper;g.fillRect(0,0,CW,CH);
+  g.strokeStyle=inkRGBA(ink,.08);g.lineWidth=Math.max(1,dpr*.55);g.beginPath();
+  for(let y=cell*.45;y<CH;y+=Math.max(3,cell*.72)){g.moveTo(0,y);g.lineTo(CW,y)}
+  g.stroke();
+  g.fillStyle=ink;
+  for(let y=cell/2;y<=CH;y+=cell){
+    const sy=Math.max(0,Math.min(SH-1,Math.floor((y-oy)/s)));
+    for(let x=cell/2;x<=CW;x+=cell){
+      const sx=Math.max(0,Math.min(SW-1,Math.floor((x-ox)/s))),i=(sy*SW+sx)*4;
+      const lum=(src[i]*.299+src[i+1]*.587+src[i+2]*.114)/255;let d=1-lum;
+      if(d<INKLAW.floor)continue;
+      d=INKLAW.grade(d);
+      g.beginPath();g.arc(x,y,Math.pow(d,.9)*cell*.62*1.05,0,7);g.fill();
+    }
+  }
+}
+let puppetLast=0;
+function puppetLoop(now){
+  requestAnimationFrame(puppetLoop);
+  if(document.hidden||S.view!=='stage'||!PUPPETS.size)return;
+  const t=now/1000,dt=Math.min(0.08,t-(puppetLast||t));puppetLast=t;
+  const ink=resolveToken('--ink',t),paper=resolveToken('--paper',t);
+  for(const p of PUPPETS.values()){
+    if(!p.canvas.isConnected)continue;
+    for(const k of FACE_PARAMS){
+      const cur=p.cur[k],tgt=p.tgt[k];
+      const rate=Math.abs(tgt)>Math.abs(cur)?dt/0.35:dt/0.5;
+      p.cur[k]=cur+(tgt-cur)*Math.min(1,rate*3);
+    }
+    drawPuppet(p,t);dotify(p.canvas,p.off,ink,paper);
+  }
+}
+requestAnimationFrame(puppetLoop);
+
+/* ================= THE KERNEL ================= */
+/* Invariants live here. Belief is never fact; speech is never physics;
+   possession moves only through events; every mutation is an event with
+   lineage and authorship. */
+const BANNED=['hamlet','elsinore','denmark','claudius','ophelia','horatio','gertrude','polonius','laertes','mousetrap','shakespeare','wittenberg','yorick','danish'];
+let W=null;
+const PRESET_CAST=[
+ {id:'hamlet',name:'HAMLET',pressure:5,place:'rampart',
+  card:'Your father the king died two months ago. Your uncle has married your mother and taken the crown. A watchman you trust says something walks the high walk at night wearing your father’s shape. You cannot act on suspicion alone, and you know it, and it eats you.',
+  constraints:'You think past the moment of action. You speak in questions and turns. You test before you trust. You are loyal to your father’s memory and cold to the court.'},
+ {id:'claudius',name:'CLAUDIUS',pressure:4,place:'hall',
+  card:'You are newly king. You married your brother’s widow within the month. There is one thing you have done that no living person may learn. The young prince watches you, and the court watches the prince.',
+  constraints:'You speak smoothly and administer quickly. You keep order in the room at any cost. You never show the thing underneath.'},
+ {id:'ophelia',name:'OPHELIA',pressure:3,place:'garden',
+  card:'Your father instructs you in everything and reports to the new king. The prince has shown you affection; your father says refuse it. You obey, and grieve the obeying, and keep flowers because they do not instruct you.',
+  constraints:'You answer softly and watch precisely. Your obedience is real and so is what it costs. You notice what others feel before they say it.'},
+ {id:'horatio',name:'HORATIO',pressure:3,place:'rampart',
+  card:'You are a scholar visiting from abroad, friend to the prince. Last night on the high walk you saw something your philosophy cannot place. You trust evidence and you trust him, in that order on good days.',
+  constraints:'You verify. You understate. You stay when others leave.'},
+ {id:'gertrude',name:'GERTRUDE',pressure:2,place:'hall',
+  card:'You buried a husband and married his brother within a month. You want your son at peace and the court quiet. You have learned not to examine some things too closely.',
+  constraints:'You soothe. You redirect. You choose the peace of the room over the truth of it, and you know you do.'}
+];
+function seedWorld(){
+  const cast=S.cast||PRESET_CAST;
+  W={tick:0,events:[],requirements:[],threads:[],pendingBuilds:[],builderWire:null,
+    resources:{timber:6,cloth:4,labor:3},
+    ablation:{builder:$('#ablBuilder').checked,fade:$('#ablFade').checked,redact:$('#ablRedact').checked,fidelity:$('#ablFidelity').checked},
+    places:{
+      rampart:{id:'rampart',name:'the high walk',generic:'a high open walk on a wall, cold at night',adj:['corridor'],marks:[]},
+      corridor:{id:'corridor',name:'the long corridor',generic:'a long narrow passage',adj:['rampart','hall'],marks:[]},
+      hall:{id:'hall',name:'the great hall',generic:'a great room where many can stand',adj:['corridor','chapel','garden'],marks:[]},
+      chapel:{id:'chapel',name:'the chapel',generic:'a small quiet room set apart',adj:['hall'],marks:[]},
+      garden:{id:'garden',name:'the walled garden',generic:'a walled green plot',adj:['hall'],marks:[]}
+    },
+    objects:{
+      brazier:{id:'brazier',name:'an iron brazier',place:'rampart',fixed:true,authorship:'seed'},
+      table:{id:'table',name:'a writing table',place:'hall',fixed:true,authorship:'seed'},
+      paper:{id:'paper',name:'loose sheets of paper',place:'hall',authorship:'seed'},
+      ink:{id:'ink',name:'a pot of ink',place:'hall',authorship:'seed'},
+      chest:{id:'chest',name:'a locked chest',place:'corridor',fixed:true,locked:true,keyId:'key',contains:['ring'],authorship:'seed'},
+      key:{id:'key',name:'an iron key',holder:'claudius',authorship:'seed'},
+      ring:{id:'ring',name:'an old seal ring',inside:'chest',authorship:'seed'},
+      bench:{id:'bench',name:'a prayer bench',place:'chapel',fixed:true,authorship:'seed'},
+      rue:{id:'rue',name:'a bed of rue and small flowers',place:'garden',fixed:true,authorship:'seed'}
+    },
+    chars:{}
+  };
+  for(const c of cast){
+    const profile=emptyProfile();
+    updateProfile(profile,scanText(c.card+' '+c.constraints));
+    W.chars[c.id]={...c,beliefs:[],episodic:[],gists:[],relations:{},profile,lastObstruction:null,collapseCooldown:0};
+  }
+  $('#log').innerHTML='';$('#castStrip').innerHTML='';PUPPETS.clear();evN=0;
+  EV('seed',null,{note:'the world begins: five bare places, few objects, a resource pool (timber 6, cloth 4, labor 3)'},{authorship:'seed',seenBy:[]});
+  show('stage');renderAll();
+}
+let evN=0;
+function EV(op,actor,data={},opts={}){
+  const e={id:'E'+(++evN),tick:W.tick,op,actor,
+    delta:data.delta||null,note:data.note||'',text:data.text||'',target:data.target||null,
+    seenBy:opts.seenBy??(actor?coPresent(actor):[]),
+    enabledBy:opts.enabledBy||[],authorship:opts.authorship||(actor?'character':'world'),
+    thought:data.thought||''};
+  W.events.push(e);
+  renderEvent(e);
+  return e;
+}
+function coPresent(actorId){
+  const pl=W.chars[actorId]?.place;
+  return Object.values(W.chars).filter(c=>c.place===pl).map(c=>c.id);
+}
+function objsAt(place){return Object.values(W.objects).filter(o=>o.place===place&&!o.inside)}
+function heldBy(chId){return Object.values(W.objects).filter(o=>o.holder===chId)}
+function findObj(nameish,scope){
+  const n=String(nameish||'').toLowerCase();
+  return scope.find(o=>o.id===n||o.name.toLowerCase().includes(n.replace(/^the\s+/,'')));
+}
+function findChar(nameish){
+  const n=String(nameish||'').toUpperCase();
+  return Object.values(W.chars).find(c=>c.name===n||c.id.toUpperCase()===n||n.includes(c.name));
+}
+function findPlace(nameish){
+  const n=String(nameish||'').toLowerCase();
+  return Object.values(W.places).find(p=>p.id===n||p.name.includes(n.replace(/^the\s+/,''))||n.includes(p.id));
+}
+function percept(ch){
+  const pl=W.places[ch.place];
+  const lines=[];
+  lines.push(`You are at ${pl.name} (${pl.generic}). Ways lead to: ${pl.adj.map(a=>W.places[a].name).join(', ')}.`);
+  const here=coPresent(ch.id).filter(id=>id!==ch.id).map(id=>W.chars[id].name);
+  lines.push(here.length?`Present: ${here.join(', ')}.`:'You are alone here.');
+  const objs=objsAt(ch.place);
+  if(objs.length)lines.push('Things: '+objs.map(o=>o.name).join('; ')+'.');
+  const held=heldBy(ch.id);
+  if(held.length)lines.push('You carry: '+held.map(o=>o.name).join('; ')+'.');
+  if(pl.marks.length)lines.push('Marks left here: '+pl.marks.slice(-3).map(m=>`"${m.text}"`).join(' · '));
+  if(ch.place==='rampart'&&W.tick%9<2)lines.push('At the parapet, for a breath, a cold shape stands in the old king’s likeness, and is gone. You cannot say what it was.');
+  const seen=W.events.slice(-8).filter(e=>e.seenBy.includes(ch.id)&&e.actor!==ch.id&&(e.op==='speak'||e.op==='move'||e.op==='build.complete'));
+  for(const e of seen.slice(-3))lines.push('You witnessed: '+plainLine(e));
+  return lines;
+}
+function plainLine(e){
+  const nm=id=>W.chars[id]?.name||id||'the world';
+  if(e.op==='speak')return `${nm(e.actor)} said${e.target?' to '+nm(e.target):''}: "${e.text}"`;
+  if(e.op==='move')return `${nm(e.actor)} went to ${e.note}`;
+  if(e.op==='build.complete')return `something new stands: ${e.note}`;
+  return `${nm(e.actor)} — ${e.op}${e.note?': '+e.note:''}`;
+}
+/* ---- verbs: the only ways the world changes ---- */
+function applyAction(ch,act){
+  const verb=String(act.verb||'wait').toLowerCase();
+  const here=W.places[ch.place];
+  if(verb==='move'){
+    const dest=findPlace(act.target||act.text);
+    if(dest&&here.adj.includes(dest.id)){
+      const before=ch.place;ch.place=dest.id;
+      ch.pressure=Math.max(1,ch.pressure-0.5);
+      return EV('move',ch.id,{note:dest.name,delta:{place:[before,dest.id]},thought:act._thought});
+    }
+    return obstruct(ch,act,`no way leads from ${here.name} to "${act.target||act.text||'?'}"`);
+  }
+  if(verb==='take'){
+    const o=findObj(act.target||act.text,objsAt(ch.place));
+    if(!o)return obstruct(ch,act,'no such thing lies here');
+    if(o.fixed)return obstruct(ch,act,`${o.name} cannot be carried`);
+    o.holder=ch.id;delete o.place;
+    ch.pressure=Math.max(1,ch.pressure-0.5);
+    return EV('take',ch.id,{note:o.name,delta:{holder:[null,ch.id]},target:o.id,thought:act._thought});
+  }
+  if(verb==='drop'){
+    const o=findObj(act.target||act.text,heldBy(ch.id));
+    if(!o)return obstruct(ch,act,'you do not carry that');
+    o.place=ch.place;delete o.holder;
+    return EV('drop',ch.id,{note:o.name,target:o.id,thought:act._thought});
+  }
+  if(verb==='give'){
+    const o=findObj(act.target||act.text,heldBy(ch.id));
+    const to=findChar(act.to);
+    if(!o)return obstruct(ch,act,'you do not carry that');
+    if(!to||to.place!==ch.place)return obstruct(ch,act,'they are not here');
+    o.holder=to.id;
+    ch.relations[to.id]=(ch.relations[to.id]||0)+1;to.relations[ch.id]=(to.relations[ch.id]||0)+1;
+    return EV('give',ch.id,{note:`${o.name} to ${to.name}`,target:to.id,thought:act._thought});
+  }
+  if(verb==='speak'){
+    const text=String(act.text||'').slice(0,400);
+    if(!text)return obstruct(ch,act,'nothing was said');
+    const to=act.to?findChar(act.to):null;
+    const hearers=coPresent(ch.id).filter(id=>id!==ch.id);
+    for(const h of hearers)W.chars[h].beliefs.push({tick:W.tick,kind:'heard',from:ch.name,text});
+    const e=EV('speak',ch.id,{text,target:to?.id||null,thought:act._thought});
+    if(to&&to.place===ch.place)openThread('reply',`${to.name} has not answered ${ch.name}`,e,to.id);
+    if(to&&to.place!==ch.place)return obstruct(ch,act,`${to.name} is not here to hear it`);
+    closeThreadsBy('reply',ch.id);
+    if(W.ablation.fidelity)judgeUtterance(ch,text);
+    return e;
+  }
+  if(verb==='write'){
+    const hasInk=heldBy(ch.id).some(o=>o.id==='ink')||objsAt(ch.place).some(o=>o.id==='ink');
+    const hasPaper=heldBy(ch.id).some(o=>o.id==='paper')||objsAt(ch.place).some(o=>o.id==='paper')||true;
+    if(!hasInk)return obstruct(ch,act,'nothing here to write with');
+    const text=String(act.text||'').slice(0,200);
+    here.marks.push({text,by:ch.id,tick:W.tick});
+    return EV('write',ch.id,{note:`left a mark at ${here.name}`,text,thought:act._thought});
+  }
+  if(verb==='examine'){
+    const o=findObj(act.target||act.text,[...objsAt(ch.place),...heldBy(ch.id)]);
+    if(!o)return obstruct(ch,act,'nothing of that kind here to examine');
+    let found=o.name;
+    if(o.locked)found+=' — locked fast';
+    ch.beliefs.push({tick:W.tick,kind:'seen',text:found});
+    return EV('examine',ch.id,{note:found,target:o.id,thought:act._thought});
+  }
+  if(verb==='use'){
+    const o=findObj(act.target||act.text,[...objsAt(ch.place),...heldBy(ch.id)]);
+    if(!o)return obstruct(ch,act,'nothing of that kind here to use');
+    if(o.id==='chest'){
+      const key=heldBy(ch.id).find(x=>x.id===o.keyId);
+      if(o.locked&&!key)return obstruct(ch,act,'the chest is locked and you hold no key');
+      if(o.locked&&key){o.locked=false;
+        for(const cid of o.contains||[]){const c=W.objects[cid];delete c.inside;c.place=ch.place}
+        return EV('use',ch.id,{note:'unlocked the chest; inside, '+(o.contains||[]).map(id=>W.objects[id].name).join(', '),target:o.id,thought:act._thought});
+      }
+    }
+    return EV('use',ch.id,{note:'made use of '+o.name,target:o.id,thought:act._thought});
+  }
+  if(verb==='require'){
+    const need=String(act.need||act.text||'').slice(0,300);
+    if(!need)return obstruct(ch,act,'the need was not stated');
+    const req={id:'R'+(W.requirements.length+1),by:ch.id,need,tick:W.tick,status:'open',decision:null,realizedBy:null};
+    W.requirements.push(req);
+    const e=EV('require',ch.id,{note:need,thought:act._thought},{authorship:'character'});
+    req.byEvent=e.id;
+    openThread('requirement',`unmet need of ${ch.name}: ${need}`,e,null,req.id);
+    if(W.ablation.builder)runBuilder(req);
+    return e;
+  }
+  if(verb==='wait'){
+    return EV('wait',ch.id,{note:'held still',thought:act._thought});
+  }
+  /* attempt: anything the kernel does not support is an affordance failure */
+  return obstruct(ch,act,'the world as it stands offers no way to do this');
+}
+function obstruct(ch,act,reason){
+  ch.pressure=Math.min(9,ch.pressure+1);
+  ch.lastObstruction={tried:act.text||act.target||act.verb,reason,tick:W.tick};
+  return EV('obstructed',ch.id,{note:`tried to ${act.verb}${act.text?' — "'+String(act.text).slice(0,90)+'"':''}; ${reason}`,thought:act._thought},{authorship:'world'});
+}
+function openThread(kind,text,ev,waitingOn,reqId){
+  W.threads.push({id:'T'+(W.threads.length+1),kind,text,openedTick:W.tick,byEvent:ev?.id,waitingOn:waitingOn||null,reqId:reqId||null,closed:false});
+}
+function closeThreadsBy(kind,actorId){
+  for(const t of W.threads)if(!t.closed&&t.kind===kind&&t.waitingOn===actorId){t.closed=true;t.closedTick=W.tick}
+}
+/* ---- the builder: separate, source-blind, able to refuse ---- */
+function redact(text){
+  let out=String(text);
+  Object.values(W.chars).forEach((c,i)=>{
+    out=out.replace(new RegExp(c.name,'gi'),'the one called C'+(i+1));
+  });
+  if(W.ablation.redact)for(const b of BANNED)out=out.replace(new RegExp(b,'gi'),'■');
+  return out;
+}
+async function runBuilder(req){
+  const sock=activeSocket();if(!sock)return;
+  const inv=Object.values(W.places).map(p=>'- '+p.generic).join('\n')
+    +'\n'+Object.values(W.objects).filter(o=>!o.inside).map(o=>'- '+o.name).join('\n');
+  const user=`HALFWORLD BUILDER
+You shape matter and custom in a small world. You know nothing of any story, any name, or who asked.
+THE WORLD HOLDS:
+${inv}
+RESOURCES: timber ${W.resources.timber}, cloth ${W.resources.cloth}, labor ${W.resources.labor}.
+A REQUIREMENT HAS BEEN RAISED:
+"${redact(req.need)}"
+You may build something new, repurpose an existing thing, refuse, or delay. You are allowed to refuse. Prefer the least structure that satisfies the function.
+Return STRICT JSON only:
+{"decision":"build|repurpose|refuse|delay","name":"plain generic name of the thing or custom","place":"rampart|corridor|hall|chapel|garden","cost":{"timber":0,"cloth":0,"labor":0,"ticks":1},"gives":"what it makes possible, stated functionally","reason":"one line"}`;
+  W.builderWire={request:user,response:null};
+  try{
+    const p=await callJSON(sock,'Return ONLY valid JSON.',user,.5);
+    W.builderWire.response=p;
+    const cost=p.cost||{};
+    if(p.decision==='refuse'||p.decision==='delay'){
+      req.status=p.decision+'d';req.decision=p;
+      EV('build.'+p.decision,null,{note:`the builder ${p.decision}s: ${p.reason||''}`},{authorship:'builder',enabledBy:[req.byEvent],seenBy:[]});
+      renderLoomIfOpen();return;
+    }
+    const need={timber:cost.timber|0,cloth:cost.cloth|0,labor:cost.labor|0};
+    if(need.timber>W.resources.timber||need.cloth>W.resources.cloth||need.labor>W.resources.labor){
+      req.status='refused';req.decision={...p,reason:'insufficient resources'};
+      EV('build.refuse',null,{note:'the builder agreed but the resources do not: refused'},{authorship:'builder',enabledBy:[req.byEvent],seenBy:[]});
+      renderLoomIfOpen();return;
+    }
+    W.resources.timber-=need.timber;W.resources.cloth-=need.cloth;W.resources.labor-=need.labor;
+    req.status='building';req.decision=p;
+    const ticks=Math.max(1,cost.ticks|0);
+    W.pendingBuilds.push({readyTick:W.tick+ticks,spec:p,reqId:req.id});
+    EV('build.accept',null,{note:`the builder accepts (${p.decision}): "${p.name}" at ${p.place} — ready in ${ticks} tick${ticks===1?'':'s'}`},{authorship:'builder',enabledBy:[req.byEvent],seenBy:[]});
+    renderLoomIfOpen();
+  }catch(e){
+    W.builderWire.response={error:String(e.message)};
+    EV('build.error',null,{note:'the builder could not answer: '+String(e.message).slice(0,80)},{authorship:'unresolved',seenBy:[]});
+  }
+}
+function completeBuilds(){
+  const ready=W.pendingBuilds.filter(b=>b.readyTick<=W.tick);
+  W.pendingBuilds=W.pendingBuilds.filter(b=>b.readyTick>W.tick);
+  for(const b of ready){
+    const req=W.requirements.find(r=>r.id===b.reqId);
+    const id='built'+(++evN);
+    const place=W.places[b.spec.place]?b.spec.place:'hall';
+    W.objects[id]={id,name:b.spec.name||'a made thing',place,fixed:true,authorship:'builder',gives:b.spec.gives||''};
+    const e=EV('build.complete',null,{note:`${W.objects[id].name} now stands at ${W.places[place].name} — ${b.spec.gives||''}`},
+      {authorship:'builder',enabledBy:req?[req.byEvent]:[],seenBy:Object.values(W.chars).filter(c=>c.place===place).map(c=>c.id)});
+    if(req){req.status='realized';req.realizedBy=e.id;
+      for(const t of W.threads)if(t.reqId===req.id&&!t.closed){t.closed=true;t.closedTick=W.tick}
+    }
+  }
+}
+/* ---- fidelity judge ---- */
+function judgeUtterance(ch,text){
+  if(ch.collapseCooldown>W.tick)return;
+  const evts=scanText(text);
+  const sums={};for(const e of evts){const s=sums[e.axis]||(sums[e.axis]={sum:0,hits:0});s.sum+=e.dir*e.w;s.hits++}
+  for(const ax of AXES){
+    const s=sums[ax.k];if(!s||s.hits<2)continue;
+    if(!ch.profile.n[ax.k])continue;
+    const v=clamp(3+1.5*Math.tanh(s.sum/1.5),1,5);
+    if(Math.abs(v-ch.profile.theta[ax.k])>=1.4){
+      ch.collapseCooldown=W.tick+5;
+      openThread('collapse',`${ch.name} spoke far from their own ${AXES.find(a=>a.k===ax.k).label} — possible character collapse`,W.events[W.events.length-1],null);
+      const d=document.createElement('div');d.className='whisper';
+      d.textContent=`⚠ fidelity: that did not sound like ${ch.name} (${AXES.find(a=>a.k===ax.k).label})`;
+      $('#log').appendChild(d);
+      return;
+    }
+  }
+}
+/* ---- memory ---- */
+function consolidate(ch){
+  if(!W.ablation.fade)return;
+  while(ch.episodic.length>12){
+    const old=ch.episodic.splice(0,4);
+    for(const m of old)ch.gists.push({tick:m.tick,text:'(faded) '+m.text.split(' ').slice(0,6).join(' ')+'…'});
+  }
+}
+/* ---- deliberation ---- */
+function deliberatePrompt(ch){
+  const beliefs=ch.beliefs.slice(-8).map(b=>'- '+(b.kind==='heard'?`${b.from} said: "${b.text}"`:b.text)).join('\n')||'- nothing yet beyond your condition';
+  const mems=[...ch.gists.slice(-3),...ch.episodic.slice(-6)].map(m=>'- '+m.text).join('\n')||'- none yet';
+  const per=percept(ch).map(l=>'- '+l).join('\n');
+  const obs=ch.lastObstruction?`\nLAST TIME YOU WERE STOPPED: you tried "${ch.lastObstruction.tried}" and ${ch.lastObstruction.reason}. You may adapt, wait, persuade, abandon, or state a functional need with verb require.`:'';
+  return `HALFWORLD DELIBERATION
+You are ${ch.name}. This is not a story you know; it is your situation, and the world can refuse you.
+YOUR CONDITION: ${ch.card}
+YOUR MANNER (you may do things you have never done, but they must be yours): ${ch.constraints}
+WHAT YOU BELIEVE:
+${beliefs}
+WHAT YOU REMEMBER:
+${mems}
+WHERE YOU ARE:
+${per}${obs}
+Rules of this world: speaking changes no thing, only who has heard. To possess something you must take it. If what you want has no means here, use verb "require" and state the NEED functionally — name no solution. "attempt" is for anything else you try, and it may simply fail.
+Return STRICT JSON only:
+{"thought":"one private sentence, in your own voice",
+ "pressure":"one line: what drives you right now",
+ "action":{"verb":"move|take|drop|give|speak|write|examine|use|wait|require|attempt","target":"","to":"","text":"","need":""}}`;
+}
+async function tick(){
+  if(!W)return;
+  const sock=activeSocket();
+  if(!sock){S.pendingSeed=false;openModels();hostedStatus('A model is required for deliberation.','');return}
+  W.tick++;
+  completeBuilds();
+  /* multiple clocks, crudely: urgency plus starvation — whoever has waited
+     longest gains standing, so no single pressure monopolizes the world */
+  const ch=Object.values(W.chars)
+    .sort((a,b)=>(b.pressure+0.35*(W.tick-(b.lastActed||0)))-(a.pressure+0.35*(W.tick-(a.lastActed||0))))[0];
+  ch.lastActed=W.tick;
+  $('#status').textContent=`tick ${W.tick} · ${ch.name} deliberates`;
+  setCharMood(ch.name,'wonder');
+  let out;
+  try{
+    out=await callJSON(sock,'Return ONLY valid JSON.',deliberatePrompt(ch),.75);
+  }catch(e){
+    EV('hesitate',ch.id,{note:'no coherent intent formed ('+String(e.message).slice(0,60)+')'},{authorship:'unresolved'});
+    renderAll();return;
+  }
+  const act=out.action||{};act._thought=String(out.thought||'').slice(0,200);
+  if(act._thought){
+    const d=document.createElement('div');d.className='ev thought';
+    d.innerHTML=`<span class="tick">t${W.tick}</span>${esc(ch.name)}, privately: <i>${esc(act._thought)}</i>`;
+    $('#log').appendChild(d);
+  }
+  const ev=applyAction(ch,act);
+  ch.episodic.push({tick:W.tick,text:plainLine(ev)});
+  consolidate(ch);
+  const mood=ev.op==='obstructed'?'weariness':ev.op==='speak'?(/[?]/.test(ev.text)?'appeal':'resolve'):ev.op==='require'?'concern':'resolve';
+  setCharMood(ch.name,mood);
+  for(const t of W.threads)if(!t.closed&&t.waitingOn===ch.id)ch.pressure=Math.min(9,ch.pressure+0.3);
+  renderAll();
+}
+/* ================= RENDER ================= */
+function show(view){
+  S.view=view;document.body.dataset.view=view;
+  for(const v of ['seed','models','stage','loom'])$('#'+v+'View').classList.toggle('hidden',v!==view);
+  $('#backBtn').classList.toggle('hidden',view==='seed');
+  $('#loomBtn').classList.toggle('hidden',!W||view==='loom');
+  $('#runBtn').classList.toggle('hidden',view!=='stage');
+  const p=$('#primaryAction'),n=$('#actionNote');
+  if(view==='seed'){p.textContent='SEED WORLD';n.textContent='five characters, five bare places, one resisting kernel'}
+  else if(view==='stage'){p.textContent='TICK';n.textContent='one deliberation per tick · the character under most pressure acts'}
+  else if(view==='loom'){p.textContent='STAGE';n.textContent='why does anything exist — chains, threads, authorship'}
+  else{p.textContent='...';n.textContent=''}
+}
+function renderCast(){
+  const cast=S.cast||PRESET_CAST;
+  $('#castList').innerHTML=cast.map(c=>`<div class="castCard"><b>${esc(c.name)}</b><p>${esc(c.card)}</p></div>`).join('');
+}
+function renderEvent(e){
+  if(!$('#log'))return;
+  const nm=id=>W.chars[id]?.name||'';
+  const d=document.createElement('div');
+  if(e.op==='speak'){
+    d.className='ev speak';
+    d.innerHTML=`<span class="cue">${esc(nm(e.actor))}${e.target?' → '+esc(nm(e.target)):''}</span><span class="dlg">${esc(e.text)}</span>`;
+  }else if(e.op==='obstructed'){
+    d.className='ev obstructed';
+    d.innerHTML=`<span class="tick">t${W.tick}</span>${esc(nm(e.actor))} ${esc(e.note)}.`;
+  }else if(e.op.startsWith('build')){
+    d.className='ev builder';
+    d.innerHTML=`<span class="tick">t${W.tick}</span>${esc(e.note)}`;
+  }else if(e.op==='require'){
+    d.className='ev act';
+    d.innerHTML=`<span class="tick">t${W.tick}</span>${esc(nm(e.actor))} states a need: “${esc(e.note)}”`;
+  }else if(e.op==='seed'||e.op==='hesitate'){
+    d.className='ev unresolved';
+    d.innerHTML=`<span class="tick">t${W.tick}</span>${esc(e.note)}`;
+  }else{
+    d.className='ev act';
+    d.innerHTML=`<span class="tick">t${W.tick}</span>${esc(nm(e.actor))} — ${esc(e.note||e.op)}`;
+  }
+  $('#log').appendChild(d);
+  $('#log').scrollTop=$('#log').scrollHeight;
+}
+function renderWorld(){
+  $('#worldCol').innerHTML=Object.values(W.places).map(p=>{
+    const who=Object.values(W.chars).filter(c=>c.place===p.id).map(c=>c.name);
+    const objs=objsAt(p.id).map(o=>o.name+(o.authorship==='builder'?' ✦':''));
+    return `<div class="placeCard"><h4>${esc(p.name)}</h4>
+      <div class="pl">${who.length?'<span class="who">'+who.map(esc).join(', ')+'</span><br>':''}${objs.map(esc).join('; ')||'—'}
+      ${p.marks.length?'<br>marks: '+p.marks.slice(-2).map(m=>'“'+esc(m.text)+'”').join(' '):''}</div></div>`;
+  }).join('')+`<div class="notice" style="margin-top:8px">resources: timber ${W.resources.timber} · cloth ${W.resources.cloth} · labor ${W.resources.labor}<br>✦ = made by the builder</div>`;
+}
+function renderStrip(){
+  const strip=$('#castStrip');
+  for(const c of Object.values(W.chars)){
+    if(!strip.querySelector(`[data-ch="${c.id}"]`)){
+      const b=document.createElement('button');
+      b.className='castFace';b.dataset.ch=c.id;b.type='button';
+      b.innerHTML=`<canvas></canvas><span>${esc(c.name)}</span>`;
+      b.addEventListener('click',()=>openCharSheet(c.id));
+      strip.appendChild(b);
+      makePuppet(b.querySelector('canvas'),c.name);
+    }
+  }
+}
+function renderAll(){
+  if(!W)return;
+  renderWorld();renderStrip();
+  $('#status').textContent=`tick ${W.tick} · ${W.events.length} events · ${W.threads.filter(t=>!t.closed).length} open threads`;
+  if(S.view==='loom')renderLoom();
+}
+function renderLoomIfOpen(){if(S.view==='loom')renderLoom()}
+function chainFor(req){
+  const byId=id=>W.events.find(e=>e.id===id);
+  const reqEv=byId(req.byEvent);
+  const attempt=[...W.events].reverse().find(e=>e.actor===req.by&&e.op==='obstructed'&&e.tick<=req.tick);
+  const decision=W.events.find(e=>e.op.startsWith('build.')&&e.enabledBy.includes(req.byEvent));
+  const realized=req.realizedBy?byId(req.realizedBy):null;
+  const reuse=realized?W.events.filter(e=>e.enabledBy.includes(realized.id)):[];
+  const rows=[];
+  if(attempt)rows.push(['pressure',attempt.thought||'(unrecorded thought)']);
+  if(attempt)rows.push(['attempt → obstruction',attempt.note]);
+  rows.push(['requirement',req.need+' — '+(W.chars[req.by]?.name||'')]);
+  if(decision)rows.push(['builder',decision.note]);
+  if(realized)rows.push(['realization',realized.note]);
+  for(const r of reuse)rows.push(['reuse',plainLine(r)]);
+  if(!decision&&!realized)rows.push(['status',req.status]);
+  return rows;
+}
+function renderLoom(){
+  const ledger={};
+  for(const e of W.events)ledger[e.authorship]=(ledger[e.authorship]||0)+1;
+  for(const o of Object.values(W.objects))ledger['object:'+o.authorship]=(ledger['object:'+o.authorship]||0)+1;
+  $('#loomView').innerHTML=`<div style="max-width:760px">
+    <h1 style="font:700 28px/1.05 ui-serif,Georgia,serif;margin:0 0 6px">The Loom</h1>
+    <div class="lede">Why does anything exist here? Every chain below is read from recorded events — never regenerated.</div>
+    <h2>Necessity chains</h2>
+    ${W.requirements.length?W.requirements.map(r=>`<div class="chain">${chainFor(r).map(([k,v])=>`<div><span class="arr">${esc(k)} →</span> ${esc(v)}</div>`).join('')}</div>`).join(''):'<div class="notice">No requirements yet. Nothing has needed to exist.</div>'}
+    <h2>Open threads</h2>
+    ${W.threads.length?W.threads.map(t=>`<div class="threadRow ${t.closed?'closed':''}"><span class="k">${esc(t.kind.toUpperCase())}</span>${esc(t.text)}${t.closed?' — closed t'+t.closedTick:' — open since t'+t.openedTick}</div>`).join(''):'<div class="notice">none</div>'}
+    <h2>Authorship ledger</h2>
+    <div class="ledgerRow">${Object.entries(ledger).map(([k,v])=>`<span><b>${v}</b> ${esc(k)}</span>`).join('')}</div>
+    <div class="notice">Do not call a structure emergent merely because a model generated its surface. Read this ledger against the ablation switches.</div>
+    <h2>The builder's last wire (redaction inspectable)</h2>
+    ${W.builderWire?`<pre>${esc(W.builderWire.request)}</pre><pre>${esc(JSON.stringify(W.builderWire.response,null,1))}</pre>`:'<div class="notice">the builder has not been called</div>'}
+    <h2>Export</h2>
+    <button id="exportRun" class="quiet" style="border:1px solid var(--line)">EXPORT RUN JSON</button>
+  </div>`;
+  $('#exportRun')?.addEventListener('click',()=>{
+    const artifact={schema:'halfworld-run/1',exported_at:new Date().toISOString(),tick:W.tick,
+      ablation:W.ablation,resources:W.resources,
+      events:W.events,requirements:W.requirements,threads:W.threads,
+      places:W.places,objects:W.objects,
+      chars:Object.fromEntries(Object.entries(W.chars).map(([k,c])=>[k,{name:c.name,card:c.card,place:c.place,pressure:c.pressure,beliefs:c.beliefs,episodic:c.episodic,gists:c.gists,relations:c.relations}]))};
+    const blob=new Blob([JSON.stringify(artifact,null,1)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='halfworld-run.json';a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  });
+}
+function openCharSheet(id){
+  const c=W.chars[id];if(!c)return;
+  const top=AXES.map(a=>({a,v:c.profile.theta[a.k],n:c.profile.n[a.k]})).filter(x=>x.n>0).sort((x,y)=>Math.abs(y.v-3)-Math.abs(x.v-3)).slice(0,3);
+  $('#sheetTitle').textContent=c.name;
+  $('#sheetBody').innerHTML=`
+    <h3>${esc(c.name)}</h3>
+    <p>${esc(c.card)}</p>
+    <div class="notice" style="margin-bottom:10px">manner: ${esc(c.constraints)}</div>
+    <div class="notice">pressure ${c.pressure.toFixed(1)} · at ${esc(W.places[c.place].name)} · fidelity marks: ${top.map(x=>`${x.a.label} ${x.v.toFixed(1)}`).join(' · ')||'none yet'}</div>
+    <h3 style="margin-top:14px">Believes</h3>
+    ${c.beliefs.slice(-10).map(b=>`<div class="memRow">${esc(b.kind==='heard'?`${b.from} said: “${b.text}”`:b.text)}</div>`).join('')||'<div class="notice">only their condition</div>'}
+    <h3 style="margin-top:14px">Remembers</h3>
+    ${c.gists.map(g=>`<div class="memRow faded">${esc(g.text)}</div>`).join('')}
+    ${c.episodic.slice(-8).map(m=>`<div class="memRow">t${m.tick} · ${esc(m.text)}</div>`).join('')||'<div class="notice">nothing yet</div>'}`;
+  $('#sheet').classList.remove('hidden');
+}
+$('#closeSheet').addEventListener('click',()=>$('#sheet').classList.add('hidden'));
+
+/* ================= WIRING ================= */
+$('#backBtn').addEventListener('click',()=>show(S.view==='loom'?'stage':'seed'));
+$('#loomBtn').addEventListener('click',()=>{show('loom');renderLoom()});
+$('#primaryAction').addEventListener('click',async()=>{
+  if(S.view==='seed'){
+    await discoverLocal();
+    if(!activeSocket()){S.pendingSeed=true;openModels();hostedStatus('The world needs a model: characters deliberate and the builder answers through it.','');return}
+    seedWorld();
+  }
+  else if(S.view==='stage')tick();
+  else if(S.view==='loom')show('stage');
+});
+let running=false;
+$('#runBtn').addEventListener('click',async()=>{
+  if(running)return;running=true;
+  for(let i=0;i<5;i++){await tick();await new Promise(r=>setTimeout(r,150))}
+  running=false;
+});
+$('#addBtn').addEventListener('click',()=>{
+  const raw=$('#addText').value.trim();if(!raw)return;
+  const first=raw.split('\n').map(l=>l.trim()).find(Boolean)||'';
+  const m=first.match(/^([A-Z][^()\n:]{1,48}?)(?:\s*\(([A-Za-z .]{1,6})\))?\.?$/);
+  const name=(m?m[1]:'THE STRANGER').toUpperCase().slice(0,24);
+  const card=raw.replace(first,'').trim().slice(0,600)||raw.slice(0,600);
+  S.cast=[...(S.cast||PRESET_CAST),{id:name.toLowerCase().replace(/[^a-z]+/g,'')||'stranger'+Date.now()%97,name,pressure:3,place:'hall',
+    card:'You arrive knowing only your own account: '+card,
+    constraints:'Stay inside the voice of the account you gave.'}];
+  $('#addText').value='';renderCast();
+});
+restoreHosted();
+renderCast();
+show('seed');
+})();
+</script>
+</body>
+</html>
