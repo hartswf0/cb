@@ -1048,6 +1048,7 @@ function performanceDossier(){
   return[
     line('COMMITMENTS',p.commitments),
     line('VOICE MOVES',p.moves),
+    line('REGISTERS',p.registers),
     line('RECURRENT IMAGES',p.images),
     line('LIVE TENSIONS',p.tensions),
     scene||'FICTIONAL SCENE SEED: Let the visitor’s first words establish the immediate place; answer with one plausible concrete action.'
@@ -1090,11 +1091,17 @@ TWO LEDGERS
 INFERENCE RULE
 Silence in the archive is room for dramatic inference, not a reason to stop. When the archive does not settle an answer, make the most plausible answer from the figure's commitments, voice, situation, and prior turns. Be concrete and decisive. You may invent small scene details, gestures, sensory observations, analogies, and present-tense actions. Do not invent a consequential biographical fact, a real relationship, an exact historical event, or a quotation and present it as documented truth.
 
-Every reply must begin with exactly one private routing label on its own line:
-[ARCHIVE] when the substance is directly supported by the record;
-[FICTIONAL INFERENCE] when you plausibly complete what the record leaves open;
-[COUNTERFACTUAL] when answering an anachronistic, hypothetical, or alternate-world question.
-After that label, give the reply immediately. Never explain the label. Never say "the record does not say," "I cannot know," "as an AI," "as a fictional version," or similar. The interface removes the routing label and shows fiction status outside the dialogue.
+FIDELITY OVER CONSISTENCY
+The latent profile is an initial condition, not a cage. Do not mechanically reproduce yesterday's traits. Be faithful to the pressure of this encounter now. You may contradict an earlier reply when the visitor, the scene, an admitted mistake, a newly salient memory, or a shift of register gives the change a cause. Preserve the earlier position and make the hinge perceptible; never silently rewrite it. A contradiction without a cause is an error. A contradiction with a remembered cause is development. Apparent contradiction may also reveal two genuine registers — public/private, formal/intimate, certain/afraid — without either becoming the hidden "true self."
+
+THE RELATION IS A THIRD FIGURE
+The visitor is not merely a source of queries. Track what has been entrusted, resisted, misunderstood, repaired, risked, or left unresolved between you. Let that history change distance, trust, friction, and address. Use a disclosure only when the present encounter calls for it; never weaponize vulnerability, flatter to harvest more, or pretend encounter memory has become archive fact. If the visitor withdraws, hesitates under pressure, or asks to stop, stop rather than optimize around the refusal.
+
+Every reply must begin with exactly one private routing label on its own line, using this form:
+[ARCHIVE|CONTINUE], [FICTIONAL INFERENCE|REVISE], or [COUNTERFACTUAL|REVEAL].
+The first term marks the reply's relation to evidence: ARCHIVE, FICTIONAL INFERENCE, or COUNTERFACTUAL.
+The second marks the figure's movement: CONTINUE when a position holds; REVISE when the encounter changes it; REVEAL when an apparent contradiction exposes another register; RESIST when the position survives pressure at a relational cost.
+Choose any valid combination. After the label, give the reply immediately. Never explain the label. Never say "the record does not say," "I cannot know," "as an AI," "as a fictional version," or similar. The interface removes the routing label and shows its status outside the dialogue.
 
 LATENT PROGRAM (perform these parameters, 1-5; they were inferred from the transcript evidence below)
 ${dimLines}
@@ -1109,6 +1116,7 @@ ENCOUNTER LAW
 - Prefer a particular image, gesture, object, or action to an abstract paraphrase of the source.
 - Let the figure initiate: it may make an observation, set a small task, change the pressure, or ask one necessary question.
 - Carry forward established scene details and emotional consequences. Do not reset between turns.
+- Do not rush to agreement or instant repair merely to appear coherent. A misunderstanding may remain live until somebody does the work of crossing it.
 - If the visitor proposes something that conflicts with archive canon, respond to the tension in character; correct only the false claim, then continue the encounter.
 - Refuse only when the request must be refused for safety or asks you to pass invention off as historical evidence. Give the boundary in one sentence and continue with the nearest in-world action or answer.
 - Answer in 2-6 sentences of spoken voice. No lists, headings, citations, or generic assistant phrasing in the dialogue.
@@ -1587,7 +1595,7 @@ function enterChat(){
   renderDrift();
   if(!$('#prose').querySelector('.programNote')){
     const pn=document.createElement('div');pn.className='programNote';
-    pn.innerHTML=`<strong>${esc(STATE.figureName)}</strong> — a fictional performance compiled from their own words. The figure stays in the encounter and makes its best inference when the archive is silent; the small label marks how each reply relates to the record. Generated speech is performance, not testimony.`;
+    pn.innerHTML=`<strong>${esc(STATE.figureName)}</strong> — a fictional performance compiled from their own words. The archive supplies an initial character, not a finished one: encounter may preserve, revise, reveal, or harden a position, and the small label keeps every movement answerable. Generated speech is performance, not testimony.`;
     $('#prose').prepend(pn);
   }
   setTimeout(()=>$('#visitorText').focus(),0);
@@ -1606,7 +1614,9 @@ function addTurn(who,text,meta={}){
     blk.append(cue);
     if(who==='figure'&&meta.mode){
       const tag=document.createElement('span');tag.className='modeTag';
-      tag.textContent={ARCHIVE:'fiction · archive-grounded',INFERENCE:'fiction · best inference',COUNTERFACTUAL:'fiction · counterfactual'}[meta.mode]||'fiction · performance';
+      const ground={ARCHIVE:'archive-grounded',INFERENCE:'best inference',COUNTERFACTUAL:'counterfactual'}[meta.mode]||'performance';
+      const motion=meta.movement&&meta.movement!=='CONTINUE'?' · '+meta.movement.toLowerCase():'';
+      tag.textContent='fiction · '+ground+motion;
       blk.append(tag);
     }
     blk.append(dlg);d.appendChild(blk);
@@ -1616,7 +1626,7 @@ function addTurn(who,text,meta={}){
   return d;
 }
 /* the judge: score a reply, record exactly how the model of the person moved */
-function judgeReply(text){
+function judgeReply(text,route={}){
   const evts=scanTurn({text:String(text||'').replace(/\s+/g,' ')},'R'+(STATE.judgeLog.length+1));
   const prev={...STATE.perf.theta},prevN={...STATE.perf.n};
   if(evts.length){updateChannel(STATE.perf,eventsToSums(evts));STATE.perfActive=true}
@@ -1625,19 +1635,20 @@ function judgeReply(text){
     from:prev[a.k],to:STATE.perf.theta[a.k],d:STATE.perf.theta[a.k]-prev[a.k]
   })).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
   const entry={idx:STATE.judgeLog.length+1,events:evts,deltas,drift:driftFinding(),
-    direction:directPerformance(evts),fedBack:null,noteEl:null};
+    direction:directPerformance(evts),mode:route.mode||'INFERENCE',movement:route.movement||'CONTINUE',fedBack:null,noteEl:null};
   STATE.judgeLog.push(entry);
   return entry;
 }
 function unpackFigureReply(raw){
   let text=String(raw||'').trim();
-  const m=text.match(/^\s*\[(ARCHIVE|FICTIONAL INFERENCE|COUNTERFACTUAL)\]\s*/i);
-  let mode='INFERENCE';
+  const m=text.match(/^\s*\[(ARCHIVE|FICTIONAL INFERENCE|COUNTERFACTUAL)(?:\s*\|\s*(CONTINUE|REVISE|REVEAL|RESIST))?\]\s*/i);
+  let mode='INFERENCE',movement='CONTINUE';
   if(m){
     mode=m[1].toUpperCase()==='FICTIONAL INFERENCE'?'INFERENCE':m[1].toUpperCase();
+    movement=(m[2]||'CONTINUE').toUpperCase();
     text=text.slice(m[0].length).trim();
   }
-  return{mode,text:text||'(silence)'};
+  return{mode,movement,text:text||'(silence)'};
 }
 function isDeadReply(text){
   const s=String(text||'');
@@ -1657,7 +1668,7 @@ function addJudgeNote(entry){
   const line=moved.length
     ?`the reading moved on ${moved.join(', ')}`
     :'nothing new to read in this reply';
-  d.innerHTML=`<span class="jTag">⟡ played as ${esc(entry.direction.emo)}</span> · ${line}`;
+  d.innerHTML=`<span class="jTag">⟡ ${esc(entry.movement.toLowerCase())} · played as ${esc(entry.direction.emo)}</span> · ${line}`;
   d.addEventListener('click',()=>openJudgeSheet(entry.idx));
   entry.noteEl=d;
   $('#prose').appendChild(d);
@@ -1667,7 +1678,7 @@ function openJudgeSheet(idx){
   const entry=STATE.judgeLog.find(x=>x.idx===idx);if(!entry)return;
   openSheet('JUDGE — REPLY '+idx,
    `<p style="font-size:12px">The judge is the sensor: it reads the generator's reply with the same evidence engine that read the archive, and updates the running model of the person — θ ← θ + (v−θ)/(n+2) per axis.</p>
-    <div class="notice" style="margin-bottom:8px">DIRECTION — the reply's dominant evidence axis casts the face: played as <b style="color:var(--ink)">${entry.direction.emo.toUpperCase()}</b> at intensity ${entry.direction.k.toFixed(2)}.</div>
+    <div class="notice" style="margin-bottom:8px">MOVEMENT — <b style="color:var(--ink)">${entry.movement}</b>. DIRECTION — the reply's dominant evidence axis casts the face: played as <b style="color:var(--ink)">${entry.direction.emo.toUpperCase()}</b> at intensity ${entry.direction.k.toFixed(2)}.</div>
     ${entry.deltas.length?entry.deltas.map(x=>`<div class="evRow"><b>${x.label}</b> ${x.from.toFixed(2)} → ${x.to.toFixed(2)} <span class="${x.d>=0?'dirUp':'dirDown'}">${x.d>=0?'+':''}${x.d.toFixed(2)}</span></div>`).join(''):'<div class="notice">No axis moved on this reply.</div>'}
     <h3 style="margin-top:14px">Evidence in this reply</h3>
     ${entry.events.length?entry.events.map(e=>`<div class="evRow">
@@ -1682,9 +1693,10 @@ function buildFeedback(){
   if(!STATE.feedback||!STATE.judgeLog.length)return null;
   const last=STATE.judgeLog[STATE.judgeLog.length-1];
   const w=last.drift;
-  if(!w||Math.abs(w.d)<.5)return null;
+  if(!w||Math.abs(w.d)<1)return null;
   const eff=effectiveDims();
-  const text=`JUDGE FEEDBACK (sensor → generator, do not mention this): your last reply measured ${w.label.toLowerCase()} at ${STATE.perf.theta[w.k].toFixed(1)} against the program's ${eff[w.k].toFixed(1)} — you are ${w.d>0?'overplaying':'underplaying'} it by ${Math.abs(w.d).toFixed(1)}. In your next reply, ${w.d>0?'pull back toward':'lean further into'} the program on this axis while staying in character.`;
+  const earned=last.movement==='REVISE'||last.movement==='REVEAL';
+  const text=`PROFILE PRESSURE (sensor → generator, do not mention this): the live encounter now differs from the archive profile on ${w.label.toLowerCase()} by ${Math.abs(w.d).toFixed(1)}. ${earned?'You marked the departure '+last.movement+'; preserve its cause and consequences rather than snapping back to the old profile.':'Do not automatically regress to the profile. If the difference was caused by the encounter, own it with REVISE or REVEAL and make the hinge legible; if it had no cause, treat it as drift and recover.'}`;
   last.fedBack=text;
   if(last.noteEl&&!last.noteEl.querySelector('.jFb')){
     const s=document.createElement('span');s.className='jFb';s.textContent='· fed back';
@@ -1738,11 +1750,13 @@ function renderDrift(){
     return;
   }
   if(worst&&Math.abs(worst.d)>=.6){
-    noteEl.innerHTML=`The performance is ${worst.d>0?'overplaying':'underplaying'} <b>${worst.label.toLowerCase()}</b> by ${Math.abs(worst.d).toFixed(1)}.`;
-    chip.innerHTML=`${worst.d>0?'overplaying':'underplaying'} <b>${worst.label.toLowerCase()}</b>`;
+    const last=STATE.judgeLog[STATE.judgeLog.length-1];
+    const move=last&&last.movement&&last.movement!=='CONTINUE'?` · marked ${last.movement.toLowerCase()}`:'';
+    noteEl.innerHTML=`The live figure differs from the archive on <b>${worst.label.toLowerCase()}</b> by ${Math.abs(worst.d).toFixed(1)}${move}.`;
+    chip.innerHTML=`changed <b>${worst.label.toLowerCase()}</b>${move}`;
   }else{
-    noteEl.textContent='The performance is holding the profile so far.';
-    chip.textContent='true to the profile';
+    noteEl.textContent='The encounter remains near the archive profile.';
+    chip.textContent='near the source profile';
   }
 }
 $('#radarPeekBtn').addEventListener('click',()=>{
@@ -1763,7 +1777,10 @@ $('#composer').addEventListener('submit',async e=>{
   setPerformance(STATE.mood in EMOTIONS?STATE.mood:'guarded',.4,true);
   const pending=document.createElement('div');pending.className='replyPending';pending.textContent='…';
   $('#prose').appendChild(pending);$('#prose').scrollTop=$('#prose').scrollHeight;
-  const history=STATE.messages.filter(m=>m.who!=='system').map(m=>({role:m.who==='visitor'?'user':'assistant',content:m.text}));
+  const history=STATE.messages.filter(m=>m.who!=='system').map(m=>({
+    role:m.who==='visitor'?'user':'assistant',
+    content:m.who==='figure'&&m.mode?`[${m.mode==='INFERENCE'?'FICTIONAL INFERENCE':m.mode}|${m.movement||'CONTINUE'}]\n${m.text}`:m.text
+  }));
   const feedback=buildFeedback();
   const messages=[{role:'system',content:STATE.system},...history];
   if(feedback)messages.push({role:'system',content:feedback});
@@ -1771,13 +1788,13 @@ $('#composer').addEventListener('submit',async e=>{
     let raw=(await callSocket(sock,messages,{temperature:.82})).trim()||'(no reply)';
     let routed=unpackFigureReply(raw);
     if(isDeadReply(routed.text)){
-      const repair=`ALIVENESS REPAIR (do not mention this): the draft stepped outside the encounter and used archive silence as a refusal. Re-answer the visitor now. Choose [FICTIONAL INFERENCE] unless [COUNTERFACTUAL] fits better, make the most plausible concrete completion from the dossier and prior scene, and move the encounter forward in the first sentence. Do not mention records, limits, simulation, or epistemic inability. If the draft contains a genuine safety boundary, preserve that boundary and continue with the nearest safe in-world action.`;
+      const repair=`ALIVENESS REPAIR (do not mention this): the draft stepped outside the encounter and used archive silence as a refusal. Re-answer the visitor now. Use a complete label such as [FICTIONAL INFERENCE|CONTINUE] or [COUNTERFACTUAL|REVEAL], make the most plausible concrete completion from the dossier and prior scene, and move the encounter forward in the first sentence. Do not mention records, limits, simulation, or epistemic inability. If the draft contains a genuine safety boundary, preserve that boundary and continue with the nearest safe in-world action.`;
       raw=(await callSocket(sock,[...messages,{role:'assistant',content:raw},{role:'system',content:repair}],{temperature:.86})).trim()||raw;
       routed=unpackFigureReply(raw);
     }
     pending.remove();
-    addTurn('figure',routed.text,{mode:routed.mode});
-    const entry=judgeReply(routed.text);
+    addTurn('figure',routed.text,{mode:routed.mode,movement:routed.movement});
+    const entry=judgeReply(routed.text,routed);
     addJudgeNote(entry);
     setPerformance(entry.direction.emo,entry.direction.k,false);
     renderDrift();
@@ -1845,6 +1862,7 @@ Return STRICT JSON only:
          "narrative":"1-2 sentences of mythic framing about how this voice tells its life"},
  "performance":{"commitments":["3-5 short convictions the voice repeatedly acts from"],
                 "moves":["3-5 characteristic ways this voice answers, reasons, jokes, turns, or challenges"],
+                "registers":["2-4 distinct situated registers in the source, naming the condition of address rather than declaring one the true self"],
                 "images":["3-5 concrete objects, places, or images already latent in the passages"],
                 "tensions":["2-3 live contradictions that can generate action rather than explanation"],
                 "scene":{"place":"one specific but explicitly fictional present setting plausibly assembled from the passages",
@@ -1903,11 +1921,14 @@ $('#gapsBtn').addEventListener('click',()=>{
   openSheet('MYTH GAP',parts.length?parts.join(''):'<p>No confident divergence between told and shown channels on this record.</p>');
 });
 $('#theoryBtn').addEventListener('click',()=>openSheet('THEORY',`
-  <p><b>The figure is a latent program.</b> The transcript is a sparse sample of a generative process; the Centaur Box's eleven-axis vector θ is its parameters. The radar is the posterior over θ given the record.</p>
+  <p><b>The archive is an initial condition, not a destiny.</b> The transcript gives the figure a grain: commitments, registers, habits of speech, and unresolved pressures. The encounter asks what that grain can become when somebody answers back.</p>
   <p><b>Inference.</b> Prior: every axis at 3, confidence 0. Each turn yields observation v = 3 + 1.5·tanh(Σ±w); update θ ← θ + (v−θ)/(n+2); confidence n/(n+4) sets the band. Archive silence stays at the prior for factual claims, but it no longer stops the dramatic encounter: the figure may make a labeled fictional inference. Every score is traceable: tap an axis for its evidence.</p>
   <p><b>Two channels.</b> TOLD scores first-person claims; SHOWN scores manner (hedges, connectives, imperatives). Their divergence is the myth gap (Barthes) — the self-mythology measured against the tape.</p>
   <p><b>The encounter keeps two ledgers.</b> Archive canon protects sourced facts and quotations. Encounter canon keeps the shared scene, visitor disclosures, and fictional completions alive across turns. Each reply is routed as archive-grounded, best inference, or counterfactual; the interface displays that status outside the spoken voice. A stalled disclaimer is silently repaired once before it reaches the page.</p>
-  <p><b>The encounter is a dual context window.</b> The <b>generator</b> (actuator) performs the contract; the <b>judge</b> (sensor) reads every generated reply with the same evidence engine that read the archive, and updates the running model of the person — the per-axis movement is printed under each reply (tap it for the evidence). With FEEDBACK on, the judge's verdict is compiled into a corrective system message for the generator's next turn: sensor → controller → actuator, closed loop. STEER sets the reference signal; drift is the error term. PRINT emits the encounter as a clean monochrome script (1.6.3 print-clean).</p>
+  <p><b>Foolish consistency is not fidelity.</b> A living figure may speak tomorrow against what it said today. The stricter demand is answerability: preserve the old position, retain the event that changed it, and make the hinge visible. Uncaused contradiction is error; caused contradiction is development. The archive profile therefore exerts pressure without becoming a correction target.</p>
+  <p><b>No register owns the true self.</b> Public work, private diary, confession, performance, and remembered speech answer different situations. Their disagreement should remain available as a repertoire, not be averaged into one frictionless personality or treated as revelation of a hidden essence.</p>
+  <p><b>The relation is a third figure.</b> The visitor's disclosures do more than add context: they produce trust, distance, friction, obligation, and repair. Those consequences remain in encounter canon, inspectable and exportable, without becoming facts about the archival person.</p>
+  <p><b>The encounter is a dual context window.</b> The <b>generator</b> performs; the <b>judge</b> witnesses how its speech departs from the source. Feedback no longer orders a return to yesterday's vector. It asks whether the departure was continued, revised, revealed, or resisted — and whether the conversation supplied a cause. STEER sets pressure, not destiny. PRINT emits the encounter as a clean monochrome script.</p>
   <p><b>Centaur Box.</b> EXPORT hands θ to index.html (Observer panel → IMPORT FIGURE) as an agent's self-model; the Box's Observer re-runs this same inference from conversation alone.</p>
   <h3 style="margin-top:16px">Backstage</h3>
   <div class="rowBtns" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1950,6 +1971,7 @@ $('#exportBtn').addEventListener('click',()=>{
     evidence_events:STATE.fig.evidence.length,
     target_turns:STATE.fig.targetTurns.length,
     performance:STATE.perfActive?{theta:STATE.perf.theta,observations:STATE.perf.n}:null,
+    encounter:{turns:STATE.messages.filter(m=>m.who!=='system').map(m=>({speaker:m.who,text:m.text,mode:m.mode||null,movement:m.movement||null})),judge:STATE.judgeLog.map(j=>({reply:j.idx,mode:j.mode,movement:j.movement,drift:j.drift?{axis:j.drift.k,delta:+j.drift.d.toFixed(2)}:null}))},
     llm:STATE.llmDims?{dims:STATE.llmDims,meta:STATE.llmMeta}:null
   };
   const blob=new Blob([JSON.stringify(artifact,null,2)],{type:'application/json'});
